@@ -117,7 +117,6 @@ elf_get_section(Elf_Ehdr *h, const char *section_name)
    return NULL;
 }
 
-
 struct elf_file_info {
 
    const char *path;
@@ -126,15 +125,29 @@ struct elf_file_info {
    int fd;
 };
 
+typedef int (*cmd_func_0)(struct elf_file_info *);
+
+typedef int (*cmd_func_1)(struct elf_file_info *,
+                          const char *);
+
+typedef int (*cmd_func_2)(struct elf_file_info *,
+                          const char *,
+                          const char *);
+
+typedef int (*cmd_func_3)(struct elf_file_info *,
+                          const char *,
+                          const char *,
+                          const char *);
+
 struct elfhack_cmd {
 
    const char *opt;
    const char *help;
    int nargs;
-   int (*func)(struct elf_file_info *, ...);
+   void *func;
 };
 
-int show_help(struct elf_file_info *nfo, ...);
+int show_help(struct elf_file_info *nfo);
 
 /* --- Low-level ELF utility functions --- */
 
@@ -189,7 +202,7 @@ get_symbol(Elf_Ehdr *h, const char *sym_name)
 /* --- Actual commands --- */
 
 int
-section_dump(struct elf_file_info *nfo, const char *section_name, ...)
+section_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *s = elf_get_section(nfo->vaddr, section_name);
@@ -204,7 +217,7 @@ section_dump(struct elf_file_info *nfo, const char *section_name, ...)
 }
 
 int
-copy_section(struct elf_file_info *nfo, const char *src, const char *dst, ...)
+copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *s_src, *s_dst;
@@ -319,7 +332,7 @@ link_sections(struct elf_file_info *nfo,
 }
 
 int
-move_metadata(struct elf_file_info *nfo, ...)
+move_metadata(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    char *hc = (char *)h;
@@ -356,7 +369,7 @@ move_metadata(struct elf_file_info *nfo, ...)
 }
 
 int
-drop_last_section(struct elf_file_info *nfo, ...)
+drop_last_section(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    char *hc = (char *)h;
@@ -424,20 +437,6 @@ drop_last_section(struct elf_file_info *nfo, ...)
    for (uint32_t i = 0; i < h->e_shnum; i++)
       if ((int)sections[i].sh_link == last_section_index)
          sections[i].sh_link = 0;
-
-   /*
-    * Unfortunately, the "bash for Windows" subsystem does not support
-    * ftruncate on memory-mapped files. Even if having the Tilck to work there
-    * is _not_ a must (users are supposed to use Linux), it is a nice-to-have
-    * feature. Therefore, here we first unmap the memory-mapped ELF file and
-    * then we truncate it.
-    */
-   if (munmap(nfo->vaddr, nfo->mmap_size) < 0) {
-      perror("munmap() failed");
-      return 1;
-   }
-
-   nfo->vaddr = NULL;
 
    /* Physically remove the last section from the file, by truncating it */
    if (ftruncate(nfo->fd, last_offset) < 0) {
@@ -512,7 +511,7 @@ set_phdr_rwx_flags(struct elf_file_info *nfo,
 }
 
 int
-verify_flat_elf_file(struct elf_file_info *nfo, ...)
+verify_flat_elf_file(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *)((char*)h + h->e_shoff);
@@ -577,7 +576,7 @@ verify_flat_elf_file(struct elf_file_info *nfo, ...)
 }
 
 int
-check_entry_point(struct elf_file_info *nfo, const char *exp, ...)
+check_entry_point(struct elf_file_info *nfo, const char *exp)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    uintptr_t exp_val;
@@ -610,7 +609,7 @@ check_entry_point(struct elf_file_info *nfo, const char *exp, ...)
 }
 
 int
-check_mem_size(struct elf_file_info *nfo, const char *exp, const char *kb, ...)
+check_mem_size(struct elf_file_info *nfo, const char *exp, const char *kb)
 {
    size_t sz = elf_calc_mem_size(nfo->vaddr);
    size_t exp_val;
@@ -703,7 +702,7 @@ set_sym_strval(struct elf_file_info *nfo,
 }
 
 int
-dump_sym(struct elf_file_info *nfo, const char *sym_name, ...)
+dump_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
@@ -726,7 +725,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name, ...)
 }
 
 int
-get_sym(struct elf_file_info *nfo, const char *sym_name, ...)
+get_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, sym_name);
@@ -741,7 +740,7 @@ get_sym(struct elf_file_info *nfo, const char *sym_name, ...)
 }
 
 int
-get_text_sym(struct elf_file_info *nfo, const char *sym_name, ...)
+get_text_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
@@ -771,7 +770,7 @@ get_text_sym(struct elf_file_info *nfo, const char *sym_name, ...)
 }
 
 int
-list_text_syms(struct elf_file_info *nfo, ...)
+list_text_syms(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
@@ -907,7 +906,7 @@ sym_get_visibility_str(unsigned visibility)
 }
 
 int
-get_sym_info(struct elf_file_info *nfo, const char *sym_name, ...)
+get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, sym_name);
@@ -1014,7 +1013,7 @@ set_sym_type(struct elf_file_info *nfo,
 }
 
 int
-undef_sym(struct elf_file_info *nfo, const char *sym_name, ...)
+undef_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, sym_name);
@@ -1146,7 +1145,6 @@ static struct elfhack_cmd cmds_list[] =
       .func = (void *)&list_text_syms,
    },
 
-
    {
       .opt = "--get-sym-info",
       .help = "<sym_name>",
@@ -1177,7 +1175,7 @@ static struct elfhack_cmd cmds_list[] =
 };
 
 int
-show_help(struct elf_file_info *nfo, ...)
+show_help(struct elf_file_info *nfo)
 {
    UNUSED_VARIABLE(nfo);
    fprintf(stderr, "Usage:\n");
@@ -1229,35 +1227,16 @@ main(int argc, char **argv)
    struct stat statbuf;
    size_t page_size;
    const char *opt = NULL;
-   const char *opt_arg1 = NULL;
-   const char *opt_arg2 = NULL;
-   const char *opt_arg3 = NULL;
    struct elfhack_cmd *cmd = NULL;
    int rc;
 
-   if (argc > 2) {
-
-      nfo.path = argv[1];
-      opt = argv[2];
-
-      if (argc > 3) {
-
-         opt_arg1 = argv[3];
-
-         if (argc > 4) {
-
-            opt_arg2 = argv[4];
-
-            if (argc > 5)
-               opt_arg3 = argv[5];
-         }
-      }
-
-   } else {
-
-      show_help(NULL, NULL, NULL);
+   if (argc <= 2) {
+      show_help(NULL);
       return 1;
    }
+
+   nfo.path = argv[1];
+   opt = argv[2];
 
    nfo.fd = open(nfo.path, O_RDWR);
 
@@ -1315,16 +1294,30 @@ main(int argc, char **argv)
    if (!cmd)
       cmd = &cmds_list[0];    /* help */
 
-   rc = cmd->func(&nfo, opt_arg1, opt_arg2, opt_arg3);
+   switch (cmd->nargs) {
+
+      case 0:
+         rc = ((cmd_func_0)cmd->func)(&nfo);
+         break;
+
+      case 1:
+         rc = ((cmd_func_1)cmd->func)(&nfo, argv[3]);
+         break;
+
+      case 2:
+         rc = ((cmd_func_2)cmd->func)(&nfo, argv[3], argv[4]);
+         break;
+
+      case 3:
+         rc = ((cmd_func_3)cmd->func)(&nfo, argv[3], argv[4], argv[5]);
+         break;
+
+      default:
+         abort();
+   }
 
 end:
-   /*
-    * Do munmap() only if vaddr != NULL.
-    * Reason: some functions (at the moment only drop_last_section()) may
-    * have their reasons for calling munmap() earlier. To avoid double-calling
-    * it and getting an error, such functions will just set vaddr to NULL.
-    */
-   if (nfo.vaddr && munmap(nfo.vaddr, nfo.mmap_size) < 0) {
+   if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {
       perror("munmap() failed");
    }
 

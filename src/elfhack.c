@@ -117,6 +117,28 @@ elf_get_section(Elf_Ehdr *h, const char *section_name)
    return NULL;
 }
 
+Elf_Shdr *
+get_sym_section(Elf_Ehdr *h, Elf_Sym *sym)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   return sections + sym->st_shndx;
+}
+
+const char *
+get_section_name(Elf_Ehdr *h, Elf_Shdr *section)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+
+   if (section->sh_type == SHT_NULL) {
+      /* Empty entries in the section table do NOT have a name */
+      return NULL;
+   }
+
+   return (const char *)h +
+          section_header_strtab->sh_offset + section->sh_name;
+}
+
 struct elf_file_info {
 
    const char *path;

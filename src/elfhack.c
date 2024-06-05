@@ -224,7 +224,7 @@ get_symbol(Elf_Ehdr *h, const char *sym_name)
 /* --- Actual commands --- */
 
 int
-section_dump(struct elf_file_info *nfo, const char *section_name)
+section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *s = elf_get_section(nfo->vaddr, section_name);
@@ -1053,10 +1053,10 @@ static struct elfhack_cmd cmds_list[] =
    },
 
    {
-      .opt = "--dump",
+      .opt = "--section-bin-dump",
       .help = "<section name>",
       .nargs = 1,
-      .func = &section_dump,
+      .func = &section_bin_dump,
    },
 
    {

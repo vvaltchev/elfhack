@@ -13,5 +13,5 @@ list(APPEND
    "src/elfhack.c"
 )
 
-add_compile_options(-Wall -Wextra)
+add_compile_options(-Wall -Wextra -ggdb)
 add_executable(elfhack ${SOURCES})

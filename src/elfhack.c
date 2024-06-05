@@ -582,11 +582,6 @@ check_entry_point(struct elf_file_info *nfo, const char *exp)
    uintptr_t exp_val;
    char *endptr;
 
-   if (!exp) {
-      printf("%p\n", TO_PTR(h->e_entry));
-      return 0;
-   }
-
    errno = 0;
    exp_val = strtoul(exp, &endptr, 16);
 
@@ -609,17 +604,12 @@ check_entry_point(struct elf_file_info *nfo, const char *exp)
 }
 
 int
-check_mem_size(struct elf_file_info *nfo, const char *exp, const char *kb)
+check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
 {
    size_t sz = elf_calc_mem_size(nfo->vaddr);
    size_t exp_val;
    char *endptr;
    int base = 10;
-
-   if (!exp || !strcmp(exp, "kb")) {
-      printf("%zu\n", exp ? sz / KB : sz);
-      return 0;
-   }
 
    if (exp[0] == '0' && exp[1] == 'x')
       base = 16;
@@ -632,7 +622,7 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *kb)
       return 1;
    }
 
-   if (kb && !strcmp(kb, "kb"))
+   if (!strcmp(unit, "kb"))
       exp_val *= KB;
 
    if (sz > exp_val) {
@@ -1037,140 +1027,140 @@ static struct elfhack_cmd cmds_list[] =
       .opt = "--help",
       .help = "",
       .nargs = 0,
-      .func = (void *)&show_help,
+      .func = &show_help,
    },
 
    {
       .opt = "--dump",
       .help = "<section name>",
       .nargs = 1,
-      .func = (void *)&section_dump,
+      .func = &section_dump,
    },
 
    {
       .opt = "--move-metadata",
       .help = "",
       .nargs = 0,
-      .func = (void *)&move_metadata,
+      .func = &move_metadata,
    },
 
    {
       .opt = "--copy",
       .help = "<src section> <dest section>",
       .nargs = 2,
-      .func = (void *)&copy_section,
+      .func = &copy_section,
    },
 
    {
       .opt = "--rename",
       .help = "<section> <new_name>",
       .nargs = 2,
-      .func = (void *)&rename_section,
+      .func = &rename_section,
    },
 
    {
       .opt = "--link",
       .help = "<section> <linked_section>",
       .nargs = 2,
-      .func = (void *)&link_sections,
+      .func = &link_sections,
    },
 
    {
       .opt = "--drop-last-section",
       .help = "",
       .nargs = 0,
-      .func = (void *)&drop_last_section,
+      .func = &drop_last_section,
    },
 
    {
       .opt = "--set-phdr-rwx-flags",
       .help = "<phdr index> <rwx flags>",
       .nargs = 2,
-      .func = (void *)&set_phdr_rwx_flags,
+      .func = &set_phdr_rwx_flags,
    },
 
    {
       .opt = "--verify-flat-elf",
       .help = "",
       .nargs = 0,
-      .func = (void *)&verify_flat_elf_file,
+      .func = &verify_flat_elf_file,
    },
 
    {
       .opt = "--check-entry-point",
-      .help = "[<expected>]",
-      .nargs = 0, /* note: the `expected` param is optional */
-      .func = (void *)&check_entry_point,
+      .help = "<expected>",
+      .nargs = 1,
+      .func = &check_entry_point,
    },
 
    {
       .opt = "--check-mem-size",
-      .help = "[expected_max] [kb]",
-      .nargs = 0, /* note: both the params are optional */
-      .func = (void *)&check_mem_size,
+      .help = "<expected_max> <b|kb>",
+      .nargs = 2,
+      .func = &check_mem_size,
    },
 
    {
       .opt = "--set-sym-strval",
       .help = "<section> <sym> <string value>",
       .nargs = 3,
-      .func = (void *)&set_sym_strval,
+      .func = &set_sym_strval,
    },
 
    {
       .opt = "--dump-sym",
       .help = "<sym_name>",
       .nargs = 1,
-      .func = (void *)&dump_sym,
+      .func = &dump_sym,
    },
 
    {
       .opt = "--get-sym",
       .help = "<sym_name>",
       .nargs = 1,
-      .func = (void *)&get_sym,
+      .func = &get_sym,
    },
 
    {
       .opt = "--get-text-sym",
       .help = "<sym_name>",
       .nargs = 1,
-      .func = (void *)&get_text_sym,
+      .func = &get_text_sym,
    },
 
    {
       .opt = "--list-text-syms",
       .help = "",
       .nargs = 0,
-      .func = (void *)&list_text_syms,
+      .func = &list_text_syms,
    },
 
    {
       .opt = "--get-sym-info",
       .help = "<sym_name>",
       .nargs = 1,
-      .func = (void *)&get_sym_info,
+      .func = &get_sym_info,
    },
 
    {
       .opt = "--set-sym-bind",
       .help = "<sym_name> <bind num>",
       .nargs = 2,
-      .func = (void *)&set_sym_bind,
+      .func = &set_sym_bind,
    },
 
    {
       .opt = "--set-sym-type",
       .help = "<sym_name> <type num>",
       .nargs = 2,
-      .func = (void *)&set_sym_type,
+      .func = &set_sym_type,
    },
 
    {
       .opt = "--undef-sym",
       .help = "<sym_name>",
       .nargs = 1,
-      .func = (void *)&undef_sym,
+      .func = &undef_sym,
    },
 };
 
@@ -1220,24 +1210,82 @@ elf_header_type_check(struct elf_file_info *nfo)
    return 0;
 }
 
+struct elfhack_cmd *
+find_cmd(const char *opt)
+{
+   for (int i = 0; i < ARRAY_SIZE(cmds_list); i++) {
+      if (!strcmp(opt, cmds_list[i].opt)) {
+         return &cmds_list[i];
+      }
+   }
+
+   return NULL;
+}
+
+int
+run_cmds(struct elf_file_info *nfo, int argc, char **argv)
+{
+   struct elfhack_cmd *cmd = NULL;
+   const char *opt;
+   int rc = 0;
+
+   while (argc > 0 && argv[0]) {
+
+      opt = argv[0];
+      cmd = find_cmd(opt);
+      argc--; argv++;
+
+      if (!cmd) {
+
+         cmd = &cmds_list[0];    /* help */
+
+      } else {
+
+         if (argc < cmd->nargs) {
+            fprintf(stderr, "ERROR: Invalid number of arguments for %s "
+                    "(expected: %d, got: %d).\n", opt, cmd->nargs, argc);
+            return 1;
+         }
+      }
+
+      switch (cmd->nargs) {
+         case 0:
+            rc = ((cmd_func_0)cmd->func)(nfo);
+            break;
+         case 1:
+            rc = ((cmd_func_1)cmd->func)(nfo, argv[0]);
+            break;
+         case 2:
+            rc = ((cmd_func_2)cmd->func)(nfo, argv[0], argv[1]);
+            break;
+         case 3:
+            rc = ((cmd_func_3)cmd->func)(nfo, argv[0], argv[1], argv[2]);
+            break;
+         default:
+            abort();
+      }
+
+      argc += cmd->nargs;
+      argv += cmd->nargs;
+   }
+
+   return rc;
+}
+
 int
 main(int argc, char **argv)
 {
    struct elf_file_info nfo = {0};
    struct stat statbuf;
    size_t page_size;
-   const char *opt = NULL;
-   struct elfhack_cmd *cmd = NULL;
    int rc;
 
-   if (argc <= 2) {
+   if (argc <= 1 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")) {
       show_help(NULL);
       return 1;
    }
 
    nfo.path = argv[1];
-   opt = argv[2];
-
    nfo.fd = open(nfo.path, O_RDWR);
 
    if (nfo.fd < 0) {
@@ -1279,42 +1327,7 @@ main(int argc, char **argv)
       goto end;
    }
 
-   for (int i = 0; i < ARRAY_SIZE(cmds_list); i++) {
-      if (!strcmp(opt, cmds_list[i].opt)) {
-         cmd = &cmds_list[i];
-         break;
-      }
-   }
-
-   if (cmd && argc-3 < cmd->nargs) {
-      fprintf(stderr, "ERROR: Invalid number of arguments for %s.\n\n", opt);
-      cmd = NULL;
-   }
-
-   if (!cmd)
-      cmd = &cmds_list[0];    /* help */
-
-   switch (cmd->nargs) {
-
-      case 0:
-         rc = ((cmd_func_0)cmd->func)(&nfo);
-         break;
-
-      case 1:
-         rc = ((cmd_func_1)cmd->func)(&nfo, argv[3]);
-         break;
-
-      case 2:
-         rc = ((cmd_func_2)cmd->func)(&nfo, argv[3], argv[4]);
-         break;
-
-      case 3:
-         rc = ((cmd_func_3)cmd->func)(&nfo, argv[3], argv[4], argv[5]);
-         break;
-
-      default:
-         abort();
-   }
+   rc = run_cmds(&nfo, argc - 2, argv + 2);
 
 end:
    if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {

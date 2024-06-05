@@ -291,8 +291,7 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
 int
 rename_section(struct elf_file_info *nfo,
                const char *section_name,
-               const char *new_name,
-               ...)
+               const char *new_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    char *hc = (char *)h;
@@ -323,8 +322,7 @@ rename_section(struct elf_file_info *nfo,
 int
 link_sections(struct elf_file_info *nfo,
               const char *section_name,
-              const char *linked,
-              ...)
+              const char *linked)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    char *hc = (char *)h;
@@ -475,8 +473,7 @@ drop_last_section(struct elf_file_info *nfo)
 int
 set_phdr_rwx_flags(struct elf_file_info *nfo,
                    const char *phdr_index,
-                   const char *flags,
-                   ...)
+                   const char *flags)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    errno = 0;
@@ -663,8 +660,7 @@ int
 set_sym_strval(struct elf_file_info *nfo,
                const char *section_name,
                const char *sym_name,
-               const char *val,
-               ...)
+               const char *val)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *section;
@@ -959,8 +955,7 @@ get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 int
 set_sym_bind(struct elf_file_info *nfo,
              const char *sym_name,
-             const char *bind_str,
-             ...)
+             const char *bind_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, sym_name);
@@ -993,8 +988,7 @@ set_sym_bind(struct elf_file_info *nfo,
 int
 set_sym_type(struct elf_file_info *nfo,
              const char *sym_name,
-             const char *type_str,
-             ...)
+             const char *type_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, sym_name);

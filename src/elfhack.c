@@ -42,11 +42,17 @@
    typedef Elf32_Sym Elf_Sym;
    typedef Elf32_Off Elf_Off;
    typedef Elf32_Word Elf_Word;
+   typedef Elf32_Rel Elf_Rel;
+   typedef Elf32_Rela Elf_Rela;
 
    #define ELF_ST_BIND(val)         ELF32_ST_BIND (val)
    #define ELF_ST_TYPE(val)         ELF32_ST_TYPE (val)
    #define ELF_ST_INFO(bind, type)  ELF32_ST_INFO ((bind), (type))
    #define ELF_ST_VISIBILITY(o)     ELF32_ST_VISIBILITY (o)
+
+   #define ELF_R_SYM(val)           ELF32_R_SYM(val)
+   #define ELF_R_TYPE(val)          ELF32_R_TYPE(val)
+   #define ELF_R_INFO(sym, type)    ELF32_R_INFO(sym, type)
 
 #elif defined(USE_ELF64) || ((defined(__x86_64__) || defined(__aarch64__)) \
                              && !defined(USE_ELF32))
@@ -58,11 +64,17 @@
    typedef Elf64_Sym Elf_Sym;
    typedef Elf64_Off Elf_Off;
    typedef Elf64_Word Elf_Word;
+   typedef Elf64_Rel Elf_Rel;
+   typedef Elf64_Rela Elf_Rela;
 
    #define ELF_ST_BIND(val)         ELF64_ST_BIND (val)
    #define ELF_ST_TYPE(val)         ELF64_ST_TYPE (val)
    #define ELF_ST_INFO(bind, type)  ELF64_ST_INFO ((bind), (type))
    #define ELF_ST_VISIBILITY(o)     ELF64_ST_VISIBILITY (o)
+
+   #define ELF_R_SYM(val)           ELF64_R_SYM(val)
+   #define ELF_R_TYPE(val)          ELF64_R_TYPE(val)
+   #define ELF_R_INFO(sym, type)    ELF64_R_INFO(sym, type)
 
 #else
 
@@ -74,69 +86,6 @@ static unsigned long
 pow2_round_up_at(unsigned long n, unsigned long pow2unit)
 {
    return (n + pow2unit - 1) & -pow2unit;
-}
-
-static size_t
-elf_calc_mem_size(Elf_Ehdr *h)
-{
-   Elf_Phdr *phdrs = (Elf_Phdr *)((char*)h + h->e_phoff);
-   Elf_Addr min_pbegin = 0;
-   Elf_Addr max_pend = 0;
-
-   for (uint32_t i = 0; i < h->e_phnum; i++) {
-
-      Elf_Phdr *p = phdrs + i;
-      Elf_Addr pend = pow2_round_up_at(p->p_paddr + p->p_memsz, p->p_align);
-
-      if (i == 0 || p->p_paddr < min_pbegin)
-         min_pbegin = p->p_paddr;
-
-      if (pend > max_pend)
-         max_pend = pend;
-   }
-
-   return max_pend - min_pbegin;
-}
-
-static Elf_Shdr *
-elf_get_section(Elf_Ehdr *h, const char *section_name)
-{
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-
-   for (uint32_t i = 0; i < h->e_shnum; i++) {
-
-      Elf_Shdr *s = sections + i;
-      char *name = (char *)h + section_header_strtab->sh_offset + s->sh_name;
-
-      if (!strcmp(name, section_name)) {
-         return s;
-      }
-   }
-
-   return NULL;
-}
-
-Elf_Shdr *
-get_sym_section(Elf_Ehdr *h, Elf_Sym *sym)
-{
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   return sections + sym->st_shndx;
-}
-
-const char *
-get_section_name(Elf_Ehdr *h, Elf_Shdr *section)
-{
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-
-   if (section->sh_type == SHT_NULL) {
-      /* Empty entries in the section table do NOT have a name */
-      return NULL;
-   }
-
-   return (const char *)h +
-          section_header_strtab->sh_offset + section->sh_name;
 }
 
 struct elf_file_info {
@@ -173,6 +122,183 @@ int show_help(struct elf_file_info *nfo);
 
 /* --- Low-level ELF utility functions --- */
 
+
+static Elf_Shdr *
+get_section(Elf_Ehdr *h, const char *section_name)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+
+      Elf_Shdr *s = sections + i;
+      char *name = (char *)h + section_header_strtab->sh_offset + s->sh_name;
+
+      if (!strcmp(name, section_name)) {
+         return s;
+      }
+   }
+
+   return NULL;
+}
+
+static int
+get_section_index(Elf_Ehdr *h, Elf_Shdr *sec)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+
+      Elf_Shdr *s = sections + i;
+
+      if (s == sec)
+         return (int)i;
+   }
+
+   return -1;
+}
+
+static int
+get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
+{
+   Elf_Shdr *symtab;
+   Elf_Sym *syms;
+   unsigned sym_count;
+
+   symtab = get_section(h, ".symtab");
+
+   if (!symtab)
+      return -1;
+
+   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
+   sym_count = symtab->sh_size / symtab->sh_entsize;
+
+   for (unsigned i = 0; i < sym_count; i++) {
+      Elf_Sym *s = syms + i;
+      if (s == symbol)
+         return i;
+   }
+
+   return -1;
+}
+
+static Elf_Sym *
+get_symbol(Elf_Ehdr *h, const char *sym_name)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+   Elf_Shdr *symtab;
+   Elf_Shdr *strtab;
+   Elf_Sym *syms;
+   unsigned sym_count;
+
+   symtab = get_section(h, ".symtab");
+   strtab = get_section(h, ".strtab");
+
+   if (!symtab || !strtab)
+      return NULL;
+
+   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
+   sym_count = symtab->sh_size / symtab->sh_entsize;
+
+   for (unsigned i = 0; i < sym_count; i++) {
+
+      Elf_Sym *s = syms + i;
+      const char *s_name;
+      
+      if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
+         Elf_Shdr *sec = sections + s->st_shndx;
+         s_name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
+      } else {
+         s_name = (char *)h + strtab->sh_offset + s->st_name;
+      }
+
+      if (!strcmp(s_name, sym_name))
+         return s;
+   }
+
+   return NULL;
+}
+
+static size_t
+elf_calc_mem_size(Elf_Ehdr *h)
+{
+   Elf_Phdr *phdrs = (Elf_Phdr *)((char*)h + h->e_phoff);
+   Elf_Addr min_pbegin = 0;
+   Elf_Addr max_pend = 0;
+
+   for (uint32_t i = 0; i < h->e_phnum; i++) {
+
+      Elf_Phdr *p = phdrs + i;
+      Elf_Addr pend = pow2_round_up_at(p->p_paddr + p->p_memsz, p->p_align);
+
+      if (i == 0 || p->p_paddr < min_pbegin)
+         min_pbegin = p->p_paddr;
+
+      if (pend > max_pend)
+         max_pend = pend;
+   }
+
+   return max_pend - min_pbegin;
+}
+
+static Elf_Sym *
+get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
+{
+   Elf_Shdr *symtab;
+   int section_idx;
+   Elf_Sym *syms;
+   unsigned sym_count;
+
+   symtab = get_section(h, ".symtab");
+
+   if (!symtab)
+      return NULL;
+
+   section_idx = get_section_index(h, sec);
+
+   if (section_idx < 0)
+      return NULL;
+
+   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
+   sym_count = symtab->sh_size / sizeof(Elf_Sym);
+
+   for (unsigned i = 0; i < sym_count; i++) {
+
+      Elf_Sym *s = syms + i;
+      unsigned symType = ELF_ST_TYPE(s->st_info);
+
+      if (symType == STT_SECTION) {
+
+         if (s->st_shndx == section_idx)
+            return s;
+      }
+   }
+
+   return NULL;
+}
+
+Elf_Shdr *
+get_sym_section(Elf_Ehdr *h, Elf_Sym *sym)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   return sections + sym->st_shndx;
+}
+
+const char *
+get_section_name(Elf_Ehdr *h, Elf_Shdr *section)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+
+   if (section->sh_type == SHT_NULL) {
+      /* Empty entries in the section table do NOT have a name */
+      return NULL;
+   }
+
+   return (const char *)h +
+          section_header_strtab->sh_offset + section->sh_name;
+}
+
 Elf_Phdr *
 get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
 {
@@ -192,33 +318,79 @@ get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
    return NULL;
 }
 
-Elf_Sym *
-get_symbol(Elf_Ehdr *h, const char *sym_name)
+static void
+remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
 {
-   Elf_Shdr *symtab;
-   Elf_Shdr *strtab;
-   Elf_Sym *syms;
-   unsigned sym_count;
+   if (rela_sec->sh_type != SHT_REL && rela_sec->sh_type != SHT_RELA)
+      abort();
 
-   symtab = elf_get_section(h, ".symtab");
-   strtab = elf_get_section(h, ".strtab");
+   int sym_index = get_symbol_index(h, sym);
 
-   if (!symtab || !strtab)
-      return NULL;
+   if (sym_index < 0)
+      abort();
 
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / sizeof(Elf_Sym);
+   if (rela_sec->sh_type == SHT_RELA) {
 
-   for (unsigned i = 0; i < sym_count; i++) {
+      Elf_Rela *rela = (void *)((char *)h + rela_sec->sh_offset);
+      unsigned count = rela_sec->sh_size / rela_sec->sh_entsize;
 
-      Elf_Sym *s = syms + i;
-      const char *s_name = (char *)h + strtab->sh_offset + s->st_name;
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rela *r = rela + i;
+         if (ELF_R_SYM(r->r_info) == (size_t)sym_index) {
+            memset(r, 0, sizeof(*r));
+         }
+      }
 
-      if (!strcmp(s_name, sym_name))
-         return s;
+   } else {
+
+      Elf_Rel *rel = (void *)((char *)h + rela_sec->sh_offset);
+      unsigned count = rela_sec->sh_size / rela_sec->sh_entsize;
+
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rel *r = rel + i;
+         if (ELF_R_SYM(r->r_info) == (size_t)sym_index) {
+            memset(r, 0, sizeof(*r));
+         }
+      }
    }
+}
 
-   return NULL;
+static void
+redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
+{
+   if (sec->sh_type != SHT_REL && sec->sh_type != SHT_RELA)
+      abort();
+
+   int index1 = get_symbol_index(h, s1);
+   int index2 = get_symbol_index(h, s2);
+
+   if (index1 < 0 || index2 < 0)
+      abort();
+
+   if (sec->sh_type == SHT_RELA) {
+
+      Elf_Rela *rela = (void *)((char *)h + sec->sh_offset);
+      unsigned count = sec->sh_size / sec->sh_entsize;
+
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rela *r = rela + i;
+         if (ELF_R_SYM(r->r_info) == (size_t)index1) {
+            r->r_info = ELF_R_INFO((size_t)index2, ELF_R_TYPE(r->r_info));
+         }
+      } 
+
+   } else {
+
+      Elf_Rela *rel = (void *)((char *)h + sec->sh_offset);
+      unsigned count = sec->sh_size / sec->sh_entsize;
+
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rela *r = rel + i;
+         if (ELF_R_SYM(r->r_info) == (size_t)index1) {
+            r->r_info = ELF_R_INFO((size_t)index2, ELF_R_TYPE(r->r_info));
+         }
+      } 
+   }
 }
 
 /* --- Actual commands --- */
@@ -227,7 +399,7 @@ int
 section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *s = elf_get_section(nfo->vaddr, section_name);
+   Elf_Shdr *s = get_section(nfo->vaddr, section_name);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -254,14 +426,14 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
       return 1;
    }
 
-   s_src = elf_get_section(nfo->vaddr, src);
+   s_src = get_section(nfo->vaddr, src);
 
    if (!s_src) {
       fprintf(stderr, "No section '%s'\n", src);
       return 1;
    }
 
-   s_dst = elf_get_section(nfo->vaddr, dst);
+   s_dst = get_section(nfo->vaddr, dst);
 
    if (!s_dst) {
       fprintf(stderr, "No section '%s'\n", dst);
@@ -308,7 +480,7 @@ rename_section(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *s = elf_get_section(nfo->vaddr, section_name);
+   Elf_Shdr *s = get_section(nfo->vaddr, section_name);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -333,8 +505,8 @@ link_sections(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *a = elf_get_section(nfo->vaddr, section_name);
-   Elf_Shdr *b = elf_get_section(nfo->vaddr, linked);
+   Elf_Shdr *a = get_section(nfo->vaddr, section_name);
+   Elf_Shdr *b = get_section(nfo->vaddr, linked);
 
    if (!a) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -672,7 +844,7 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   section = elf_get_section(h, section_name);
+   section = get_section(h, section_name);
 
    if (!section) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -782,7 +954,7 @@ list_text_syms(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *text = elf_get_section(h, ".text");
+   Elf_Shdr *text = get_section(h, ".text");
    Elf_Shdr *symtab;
    Elf_Shdr *strtab;
    Elf_Sym *syms;
@@ -796,8 +968,8 @@ list_text_syms(struct elf_file_info *nfo)
 
    text_sh_index = text - sections;
 
-   symtab = elf_get_section(h, ".symtab");
-   strtab = elf_get_section(h, ".strtab");
+   symtab = get_section(h, ".symtab");
+   strtab = get_section(h, ".strtab");
 
    if (!symtab || !strtab) {
       fprintf(stderr, "ERROR: no .symtab or .strtab in the binary\n");
@@ -1037,6 +1209,67 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
+int
+undef_section(struct elf_file_info *nfo, const char *section_name)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Shdr *sec = get_section(h, section_name);
+   Elf_Sym *section_sym;
+
+   if (!sec) {
+      fprintf(stderr, "Section '%s' not found\n", section_name);
+      return 1;     
+   }
+
+   if (sec->sh_type != SHT_RELA && sec->sh_type != SHT_REL) {
+      section_sym = get_section_symbol_obj(h, sec);
+
+      if (section_sym) {
+
+         Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+         for (uint32_t i = 0; i < h->e_shnum; i++) {
+            Elf_Shdr *s = sections + i;
+            if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
+               remove_rel_entries_for_sym(h, s, section_sym);
+            }
+         }
+
+         memset(section_sym, 0, sizeof(*section_sym));
+      }
+   }
+
+   memset(sec, 0, sizeof(*sec));
+   return 0;
+}
+
+int
+redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Sym *s1 = get_symbol(h, sym1);
+   Elf_Sym *s2 = get_symbol(h, sym2);
+
+   if (!s1) {
+      fprintf(stderr, "Cannot find symbol '%s'\n", sym1);
+      return 1;
+   }
+
+   if (!s2) {
+      fprintf(stderr, "Cannot find symbol '%s'\n", sym2);
+      return 1;
+   }
+
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+      Elf_Shdr *s = sections + i;
+      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
+         redirect_rel_internal(h, s, s1, s2);
+      }
+   }
+
+   return 0;
+}
+
 static struct elfhack_cmd cmds_list[] =
 {
    {
@@ -1177,6 +1410,20 @@ static struct elfhack_cmd cmds_list[] =
       .help = "<sym_name>",
       .nargs = 1,
       .func = &undef_sym,
+   },
+
+   {
+      .opt = "--undef-section",
+      .help = "<section_name>",
+      .nargs = 1,
+      .func = &undef_section,
+   },
+
+   {
+      .opt = "--redirect-reloc",
+      .help = "<sym1> <sym2>",
+      .nargs = 2,
+      .func = &redirect_reloc,
    },
 };
 

@@ -204,7 +204,7 @@ get_symbol(Elf_Ehdr *h, const char *sym_name)
 
       Elf_Sym *s = syms + i;
       const char *s_name;
-      
+
       if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
          Elf_Shdr *sec = sections + s->st_shndx;
          s_name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
@@ -241,7 +241,7 @@ elf_calc_mem_size(Elf_Ehdr *h)
    return max_pend - min_pbegin;
 }
 
-static Elf_Sym *
+Elf_Sym *
 get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
 {
    Elf_Shdr *symtab;
@@ -318,7 +318,7 @@ get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
    return NULL;
 }
 
-static void
+void
 remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
 {
    if (rela_sec->sh_type != SHT_REL && rela_sec->sh_type != SHT_RELA)
@@ -356,6 +356,46 @@ remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
 }
 
 static void
+redirect_rel_internal_index(Elf_Ehdr *h,
+                            Elf_Shdr *sec,
+                            unsigned index1,
+                            unsigned index2,
+                            bool swap)
+{
+   if (sec->sh_type != SHT_REL && sec->sh_type != SHT_RELA)
+      abort();
+
+   if (sec->sh_type == SHT_RELA) {
+
+      Elf_Rela *rela = (void *)((char *)h + sec->sh_offset);
+      unsigned count = sec->sh_size / sec->sh_entsize;
+
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rela *r = rela + i;
+         if (ELF_R_SYM(r->r_info) == index1) {
+            r->r_info = ELF_R_INFO(index2, ELF_R_TYPE(r->r_info));
+         } else if (swap && ELF_R_SYM(r->r_info) == index2) {
+            r->r_info = ELF_R_INFO(index1, ELF_R_TYPE(r->r_info));
+         }
+      }
+
+   } else {
+
+      Elf_Rela *rel = (void *)((char *)h + sec->sh_offset);
+      unsigned count = sec->sh_size / sec->sh_entsize;
+
+      for (unsigned i = 0; i < count; i++) {
+         Elf_Rela *r = rel + i;
+         if (ELF_R_SYM(r->r_info) == index1) {
+            r->r_info = ELF_R_INFO(index2, ELF_R_TYPE(r->r_info));
+         } else if (swap && ELF_R_SYM(r->r_info) == index2) {
+            r->r_info = ELF_R_INFO(index1, ELF_R_TYPE(r->r_info));
+         }
+      }
+   }
+}
+
+static void
 redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
 {
    if (sec->sh_type != SHT_REL && sec->sh_type != SHT_RELA)
@@ -367,30 +407,7 @@ redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
    if (index1 < 0 || index2 < 0)
       abort();
 
-   if (sec->sh_type == SHT_RELA) {
-
-      Elf_Rela *rela = (void *)((char *)h + sec->sh_offset);
-      unsigned count = sec->sh_size / sec->sh_entsize;
-
-      for (unsigned i = 0; i < count; i++) {
-         Elf_Rela *r = rela + i;
-         if (ELF_R_SYM(r->r_info) == (size_t)index1) {
-            r->r_info = ELF_R_INFO((size_t)index2, ELF_R_TYPE(r->r_info));
-         }
-      } 
-
-   } else {
-
-      Elf_Rela *rel = (void *)((char *)h + sec->sh_offset);
-      unsigned count = sec->sh_size / sec->sh_entsize;
-
-      for (unsigned i = 0; i < count; i++) {
-         Elf_Rela *r = rel + i;
-         if (ELF_R_SYM(r->r_info) == (size_t)index1) {
-            r->r_info = ELF_R_INFO((size_t)index2, ELF_R_TYPE(r->r_info));
-         }
-      } 
-   }
+   redirect_rel_internal_index(h, sec, index1, index2, false);
 }
 
 /* --- Actual commands --- */
@@ -1214,28 +1231,10 @@ undef_section(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sec = get_section(h, section_name);
-   Elf_Sym *section_sym;
 
    if (!sec) {
       fprintf(stderr, "Section '%s' not found\n", section_name);
-      return 1;     
-   }
-
-   if (sec->sh_type != SHT_RELA && sec->sh_type != SHT_REL) {
-      section_sym = get_section_symbol_obj(h, sec);
-
-      if (section_sym) {
-
-         Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-         for (uint32_t i = 0; i < h->e_shnum; i++) {
-            Elf_Shdr *s = sections + i;
-            if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
-               remove_rel_entries_for_sym(h, s, section_sym);
-            }
-         }
-
-         memset(section_sym, 0, sizeof(*section_sym));
-      }
+      return 1;
    }
 
    memset(sec, 0, sizeof(*sec));
@@ -1264,6 +1263,63 @@ redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
       Elf_Shdr *s = sections + i;
       if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
          redirect_rel_internal(h, s, s1, s2);
+      }
+   }
+
+   return 0;
+}
+
+int
+swap_symbols(struct elf_file_info *nfo,
+             const char *index1_str,
+             const char *index2_str)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Shdr *symtab;
+   Elf_Sym *syms;
+   unsigned sym_count;
+
+   symtab = get_section(h, ".symtab");
+
+   if (!symtab) {
+      fprintf(stderr, "No symbol table!");
+      return 1;
+   }
+
+   int idx1 = atoi(index1_str);
+   int idx2 = atoi(index2_str);
+
+   if (idx1 <= 0) {
+      fprintf(stderr, "Invalid symbol index: %s", index1_str);
+      return 1;
+   }
+   if (idx2 <= 0) {
+      fprintf(stderr, "Invalid symbol index: %s", index2_str);
+      return 1;
+   }
+
+   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
+   sym_count = symtab->sh_size / symtab->sh_entsize;
+
+   if (idx1 > (int)sym_count) {
+      fprintf(stderr, "Symbol index %d out of bounds", idx1);
+      return 1;
+   }
+
+   if (idx2 > (int)sym_count) {
+      fprintf(stderr, "Symbol index %d out of bounds", idx2);
+      return 1;
+   }
+
+   Elf_Sym tmp = syms[idx1];
+   syms[idx1] = syms[idx2];
+   syms[idx2] = tmp;
+
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+      Elf_Shdr *s = sections + i;
+      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
+         redirect_rel_internal_index(h, s, idx1, idx2, true);
       }
    }
 
@@ -1424,6 +1480,13 @@ static struct elfhack_cmd cmds_list[] =
       .help = "<sym1> <sym2>",
       .nargs = 2,
       .func = &redirect_reloc,
+   },
+
+   {
+      .opt = "--swap-symbols",
+      .help = "<index1> <index2>",
+      .nargs = 2,
+      .func = &swap_symbols,
    },
 };
 

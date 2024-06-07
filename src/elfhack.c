@@ -1455,6 +1455,76 @@ adjust_symtab(struct elf_file_info *nfo)
    return 0;
 }
 
+static int
+fix_patchable_func_entry(struct elf_file_info *nfo)
+{
+   static const unsigned char new_seq[5] = {
+      0x0f, 0x1f, 0x44, 0x00, 0x08,
+   };
+
+   static const unsigned char old_seq[5] = {
+      0x90, 0x90, 0x90, 0x90, 0x90,
+   };
+
+   Elf_Ehdr *h = (Elf_Ehdr *)nfo->vaddr;
+   Elf_Shdr *symtab;
+   Elf_Shdr *strtab;
+   Elf_Sym *syms;
+   unsigned sym_count;
+
+   symtab = get_section(h, ".symtab");
+   strtab = get_section(h, ".strtab");
+
+   if (!symtab || !strtab) {
+      fprintf(stderr, "No symbol table: cannot proceed");
+      return 1;
+   }
+
+   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
+   sym_count = symtab->sh_size / sizeof(Elf_Sym);
+
+   for (unsigned i = 0; i < sym_count; i++) {
+
+      Elf_Sym *sym = syms + i;
+      const unsigned char sym_type = ELF64_ST_TYPE(sym->st_info);
+
+      if (sym_type != STT_FUNC)
+         continue;
+
+      const char *s_name = (char *)h + strtab->sh_offset + sym->st_name;
+      Elf_Shdr *section = get_sym_section(h, sym);
+
+      if (section == NULL) {
+         printf("elfhack: cannot find the section of symbol %s\n", s_name);
+         continue;
+      }
+
+      const char *section_name = get_section_name(h, section);
+
+      if (strncmp(section_name, ".text", 5) != 0) {
+         printf("elfhack: symbol %s is not in a .text* section (%s)\n",
+                s_name, section_name);
+         continue;
+      }
+
+      const long sym_sec_off = sym->st_value - section->sh_addr;
+      const long sym_file_off = section->sh_offset + sym_sec_off;
+      unsigned char *data = (unsigned char *)h + sym_file_off;
+
+      if (memcmp(data, old_seq, 5)) {
+         printf("elfhack: no nops for sym %s in section %s at file off: %#lx: "
+                "%x %x %x %x %x\n",
+                s_name, section_name, sym_file_off,
+                data[0], data[1], data[2], data[3], data[4]);
+         continue;
+      }
+
+      memcpy(data, new_seq, 5);
+   }
+
+   return 0;
+}
+
 static struct elfhack_cmd cmds_list[] =
 {
    {
@@ -1623,6 +1693,13 @@ static struct elfhack_cmd cmds_list[] =
       .help = "reorder the symbol table properly (EXPERIMENTAL)",
       .nargs = 0,
       .func = &adjust_symtab,
+   },
+
+   {
+      .opt = "--fix-patchable-func-entry",
+      .help = "[x86] Replace 5 NOP instructions with one 5-byte NOP on each function entry",
+      .nargs = 0,
+      .func = &fix_patchable_func_entry,
    },
 };
 

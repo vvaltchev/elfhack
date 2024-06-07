@@ -122,6 +122,98 @@ int show_help(struct elf_file_info *nfo);
 
 /* --- Low-level ELF utility functions --- */
 
+
+static const char *
+sym_get_bind_str(unsigned bind)
+{
+   switch (bind) {
+
+      case STB_LOCAL:
+         return "local";
+
+      case STB_GLOBAL:
+         return "global";
+
+      case STB_WEAK:
+         return "weak";
+
+      case STB_GNU_UNIQUE:
+         return "unique";
+
+      default:
+
+         if (STB_LOOS <= bind && bind <= STB_HIOS)
+            return "os-spec-bind";
+
+         if (STB_LOPROC <= bind && bind <= STB_HIPROC)
+            return "cpu-spec-bind";
+   }
+
+   return "?";
+}
+
+static const char *
+sym_get_type_str(unsigned type)
+{
+   switch (type) {
+
+      case STT_NOTYPE:
+         return "notype";
+
+      case STT_OBJECT:
+         return "object";
+
+      case STT_FUNC:
+         return "func";
+
+      case STT_SECTION:
+         return "section";
+
+      case STT_FILE:
+         return "file";
+
+      case STT_COMMON:
+         return "common";
+
+      case STT_TLS:
+         return "tls";
+
+      case STT_GNU_IFUNC:
+         return "ifunc";
+
+      default:
+
+         if (STT_LOOS <= type && type <= STT_HIOS)
+            return "os-spec-type";
+
+         if (STT_LOPROC <= type && type <= STT_HIPROC)
+            return "cpu-spec-type";
+   }
+
+   return "?";
+}
+
+static const char *
+sym_get_visibility_str(unsigned visibility)
+{
+   switch (visibility) {
+
+      case STV_DEFAULT:
+         return "default";
+
+      case STV_INTERNAL:
+         return "internal";
+
+      case STV_HIDDEN:
+         return "hidden";
+
+      case STV_PROTECTED:
+         return "protected";
+   }
+
+   return "?";
+}
+
 static Elf_Shdr *
 get_section(Elf_Ehdr *h, const char *section_name)
 {
@@ -190,37 +282,51 @@ get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
    return -1;
 }
 
-static Elf_Sym *
-get_symbol(Elf_Ehdr *h, const char *sym_name)
+static const char *
+get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *strtab = get_section(h, ".strtab");
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-   Elf_Shdr *strtab;
+   const char *name = NULL;
+
+   if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
+
+      Elf_Shdr *sec = sections + s->st_shndx;
+      name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
+
+   } else {
+
+      if (strtab)
+         name = (char *)h + strtab->sh_offset + s->st_name;
+   }
+
+   return name;
+}
+
+static Elf_Sym *
+get_symbol(Elf_Ehdr *h, const char *sym_name, unsigned *index)
+{
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
    if (!syms)
       return NULL;
 
-   strtab = get_section(h, ".strtab");
-
-   if (!strtab)
-      return NULL;
-
    for (unsigned i = 0; i < sym_count; i++) {
 
       Elf_Sym *s = syms + i;
-      const char *s_name;
+      const char *s_name = get_symbol_name(h, s);
 
-      if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
-         Elf_Shdr *sec = sections + s->st_shndx;
-         s_name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
-      } else {
-         s_name = (char *)h + strtab->sh_offset + s->st_name;
-      }
+      if (!s_name)
+         continue;
 
-      if (!strcmp(s_name, sym_name))
+      if (!strcmp(s_name, sym_name)) {
+         if (index) {
+            *index = i;
+         }
          return s;
+      }
    }
 
    return NULL;
@@ -433,17 +539,98 @@ swap_symbols_index(Elf_Ehdr *h, int idx1, int idx2)
       abort();
    }
 
+   if (idx1 == idx2)
+      return;
+
    Elf_Sym tmp = syms[idx1];
    syms[idx1] = syms[idx2];
    syms[idx2] = tmp;
 
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    for (uint32_t i = 0; i < h->e_shnum; i++) {
+
       Elf_Shdr *s = sections + i;
-      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
-         redirect_rel_internal_index(h, s, idx1, idx2, true);
+
+      if (s->sh_type != SHT_REL && s->sh_type != SHT_RELA)
+         continue;
+
+      /* Rel or Rela section */
+      redirect_rel_internal_index(h, s, idx1, idx2, true);
+   }
+}
+
+static unsigned
+get_sym_type_prio(unsigned type)
+{
+   switch (type) {
+      case STT_FILE:
+         return 0;
+      case STT_SECTION:
+         return 1;
+      case STT_NOTYPE:
+         return 4;
+      case STT_FUNC:
+         return 5;
+      default:
+         return 3;
+   }
+}
+
+static void
+adjust_symtab_int(Elf_Ehdr *h)
+{
+   Elf_Shdr *symtab;
+   Elf_Sym *syms;
+   unsigned sym_count;
+   unsigned first_undef_sym;
+
+   symtab = get_section(h, ".symtab");
+
+   if (!symtab)
+      return;
+
+   syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms)
+      abort();
+
+   /* Sort the symbols skipping symbol[0] */
+   for (unsigned i = 1; i < sym_count; i++) {
+
+      unsigned type_i = ELF_ST_TYPE(syms[i].st_info);
+      unsigned p_i = get_sym_type_prio(type_i);
+
+      for (unsigned j = i + 1; j < sym_count; j++) {
+
+         unsigned type_j = ELF_ST_TYPE(syms[j].st_info);
+         unsigned p_j = get_sym_type_prio(type_j);
+
+         if (p_j < p_i) {
+
+            const char *s1 = get_symbol_name(h, &syms[i]);
+            const char *s2 = get_symbol_name(h, &syms[j]);
+
+            printf("sym[%u] '%s' has type %s > sym[%u] '%s' with type %s; swap\n",
+                   i, s1, sym_get_type_str(type_i),
+                   j, s2, sym_get_type_str(type_j));
+
+            swap_symbols_index(h, i, j);
+         }
       }
    }
+
+   first_undef_sym = sym_count - 1;
+   for (unsigned i = 1; i < sym_count; i++) {
+
+      Elf_Sym *s = syms + i;
+
+      if (ELF_ST_TYPE(s->st_info) == STT_NOTYPE) {
+         first_undef_sym = i;
+         break;
+      }
+   }
+
+   symtab->sh_info = first_undef_sym;
 }
 
 /* --- Actual commands --- */
@@ -904,7 +1091,7 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   sym = get_symbol(h, sym_name);
+   sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "Unable to find the symbol '%s'\n", sym_name);
@@ -939,7 +1126,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -961,7 +1148,7 @@ static int
 get_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -978,7 +1165,7 @@ get_text_sym(struct elf_file_info *nfo, const char *sym_name)
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -1045,103 +1232,11 @@ list_text_syms(struct elf_file_info *nfo)
    return 0;
 }
 
-
-static const char *
-sym_get_bind_str(unsigned bind)
-{
-   switch (bind) {
-
-      case STB_LOCAL:
-         return "local";
-
-      case STB_GLOBAL:
-         return "global";
-
-      case STB_WEAK:
-         return "weak";
-
-      case STB_GNU_UNIQUE:
-         return "unique";
-
-      default:
-
-         if (STB_LOOS <= bind && bind <= STB_HIOS)
-            return "os-spec-bind";
-
-         if (STB_LOPROC <= bind && bind <= STB_HIPROC)
-            return "cpu-spec-bind";
-   }
-
-   return "?";
-}
-
-static const char *
-sym_get_type_str(unsigned type)
-{
-   switch (type) {
-
-      case STT_NOTYPE:
-         return "notype";
-
-      case STT_OBJECT:
-         return "object";
-
-      case STT_FUNC:
-         return "func";
-
-      case STT_SECTION:
-         return "section";
-
-      case STT_FILE:
-         return "file";
-
-      case STT_COMMON:
-         return "common";
-
-      case STT_TLS:
-         return "tls";
-
-      case STT_GNU_IFUNC:
-         return "ifunc";
-
-      default:
-
-         if (STT_LOOS <= type && type <= STT_HIOS)
-            return "os-spec-type";
-
-         if (STT_LOPROC <= type && type <= STT_HIPROC)
-            return "cpu-spec-type";
-   }
-
-   return "?";
-}
-
-static const char *
-sym_get_visibility_str(unsigned visibility)
-{
-   switch (visibility) {
-
-      case STV_DEFAULT:
-         return "default";
-
-      case STV_INTERNAL:
-         return "internal";
-
-      case STV_HIDDEN:
-         return "hidden";
-
-      case STV_PROTECTED:
-         return "protected";
-   }
-
-   return "?";
-}
-
 static int
 get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
 
@@ -1182,7 +1277,7 @@ set_sym_bind(struct elf_file_info *nfo,
              const char *bind_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    const char *exp_end = bind_str + strlen(bind_str);
    char *endptr = NULL;
    unsigned long bind_n;
@@ -1215,7 +1310,7 @@ set_sym_type(struct elf_file_info *nfo,
              const char *type_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    const char *exp_end = type_str + strlen(type_str);
    char *endptr = NULL;
    unsigned long type_n;
@@ -1245,7 +1340,7 @@ set_sym_type(struct elf_file_info *nfo,
 static int
 undef_sym(struct elf_file_info *nfo, const char *sym_name)
 {
-   unsigned sym_count;
+   unsigned sym_count, index;
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
@@ -1254,7 +1349,7 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
       return 1;
    }
 
-   Elf_Sym *sym = get_symbol(h, sym_name);
+   Elf_Sym *sym = get_symbol(h, sym_name, &index);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -1266,8 +1361,6 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
    sym->st_shndx = 0;
    sym->st_value = 0;
    sym->st_size = 0;
-
-
    return 0;
 }
 
@@ -1290,8 +1383,8 @@ static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *s1 = get_symbol(h, sym1);
-   Elf_Sym *s2 = get_symbol(h, sym2);
+   Elf_Sym *s1 = get_symbol(h, sym1, NULL);
+   Elf_Sym *s2 = get_symbol(h, sym2, NULL);
 
    if (!s1) {
       fprintf(stderr, "Cannot find symbol '%s'\n", sym1);
@@ -1351,6 +1444,14 @@ swap_symbols(struct elf_file_info *nfo,
    }
 
    swap_symbols_index(h, idx1, idx2);
+   return 0;
+}
+
+static int
+adjust_symtab(struct elf_file_info *nfo)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   adjust_symtab_int(h);
    return 0;
 }
 
@@ -1491,7 +1592,7 @@ static struct elfhack_cmd cmds_list[] =
 
    {
       .opt = "--undef-sym",
-      .help = "<sym_name>",
+      .help = "<sym_name> (breaks the symtab sorting!)",
       .nargs = 1,
       .func = &undef_sym,
    },
@@ -1512,9 +1613,16 @@ static struct elfhack_cmd cmds_list[] =
 
    {
       .opt = "--swap-symbols",
-      .help = "<index1> <index2>",
+      .help = "<index1> <index2> (EXPERIMENTAL)",
       .nargs = 2,
       .func = &swap_symbols,
+   },
+
+   {
+      .opt = "--adjust-symtab",
+      .help = "reorder the symbol table properly (EXPERIMENTAL)",
+      .nargs = 0,
+      .func = &adjust_symtab,
    },
 };
 

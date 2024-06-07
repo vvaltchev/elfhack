@@ -122,7 +122,6 @@ int show_help(struct elf_file_info *nfo);
 
 /* --- Low-level ELF utility functions --- */
 
-
 static Elf_Shdr *
 get_section(Elf_Ehdr *h, const char *section_name)
 {
@@ -157,20 +156,30 @@ get_section_index(Elf_Ehdr *h, Elf_Shdr *sec)
    return -1;
 }
 
-static int
-get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
+static Elf_Sym *
+get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
 {
    Elf_Shdr *symtab;
    Elf_Sym *syms;
-   unsigned sym_count;
-
    symtab = get_section(h, ".symtab");
 
-   if (!symtab)
-      return -1;
+   if (!symtab) {
+      return NULL;
+   }
 
    syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / symtab->sh_entsize;
+   *sym_count = symtab->sh_size / symtab->sh_entsize;
+   return syms;
+}
+
+static int
+get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
+{
+   unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms)
+      return -1;
 
    for (unsigned i = 0; i < sym_count; i++) {
       Elf_Sym *s = syms + i;
@@ -186,19 +195,17 @@ get_symbol(Elf_Ehdr *h, const char *sym_name)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-   Elf_Shdr *symtab;
    Elf_Shdr *strtab;
-   Elf_Sym *syms;
    unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
-   symtab = get_section(h, ".symtab");
-   strtab = get_section(h, ".strtab");
-
-   if (!symtab || !strtab)
+   if (!syms)
       return NULL;
 
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / symtab->sh_entsize;
+   strtab = get_section(h, ".strtab");
+
+   if (!strtab)
+      return NULL;
 
    for (unsigned i = 0; i < sym_count; i++) {
 
@@ -244,23 +251,17 @@ elf_calc_mem_size(Elf_Ehdr *h)
 static Elf_Sym *
 get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
 {
-   Elf_Shdr *symtab;
    int section_idx;
-   Elf_Sym *syms;
    unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
-   symtab = get_section(h, ".symtab");
-
-   if (!symtab)
+   if (!syms)
       return NULL;
 
    section_idx = get_section_index(h, sec);
 
    if (section_idx < 0)
       return NULL;
-
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / sizeof(Elf_Sym);
 
    for (unsigned i = 0; i < sym_count; i++) {
 
@@ -404,10 +405,45 @@ redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
    int index1 = get_symbol_index(h, s1);
    int index2 = get_symbol_index(h, s2);
 
-   if (index1 < 0 || index2 < 0)
+   if (index1 < 0 || index2 < 0) {
       abort();
+   }
 
    redirect_rel_internal_index(h, sec, index1, index2, false);
+}
+
+static void
+swap_symbols_index(Elf_Ehdr *h, int idx1, int idx2)
+{
+   unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms) {
+      fprintf(stderr, "ERROR: No symbol table\n");
+      abort();
+   }
+
+   if (idx1 < 0 || idx1 > (int)sym_count) {
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
+      abort();
+   }
+
+   if (idx2 < 0 || idx2 > (int)sym_count) {
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
+      abort();
+   }
+
+   Elf_Sym tmp = syms[idx1];
+   syms[idx1] = syms[idx2];
+   syms[idx2] = tmp;
+
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+      Elf_Shdr *s = sections + i;
+      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
+         redirect_rel_internal_index(h, s, idx1, idx2, true);
+      }
+   }
 }
 
 /* --- Actual commands --- */
@@ -887,7 +923,7 @@ set_sym_strval(struct elf_file_info *nfo,
    len = strlen(val) + 1;
 
    if (sym->st_size < len) {
-      fprintf(stderr, "Symbol '%s' [%u bytes] not big enough for value\n",
+      fprintf(stderr, "ERROR: Symbol '%s' [%u bytes] not big enough for value\n",
               sym_name, (unsigned)sym->st_size);
       return 1;
    }
@@ -906,7 +942,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
    Elf_Sym *sym = get_symbol(h, sym_name);
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -928,7 +964,7 @@ get_sym(struct elf_file_info *nfo, const char *sym_name)
    Elf_Sym *sym = get_symbol(h, sym_name);
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -945,7 +981,7 @@ get_text_sym(struct elf_file_info *nfo, const char *sym_name)
    Elf_Sym *sym = get_symbol(h, sym_name);
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -972,11 +1008,15 @@ list_text_syms(struct elf_file_info *nfo)
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *text = get_section(h, ".text");
-   Elf_Shdr *symtab;
    Elf_Shdr *strtab;
-   Elf_Sym *syms;
-   unsigned sym_count;
    unsigned text_sh_index;
+   unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms) {
+      fprintf(stderr, "ERROR: ERROR: No symbol table\n");
+      return 1;
+   }
 
    if (!text) {
       fprintf(stderr, "ERROR: cannot find the .text section\n");
@@ -984,17 +1024,12 @@ list_text_syms(struct elf_file_info *nfo)
    }
 
    text_sh_index = text - sections;
-
-   symtab = get_section(h, ".symtab");
    strtab = get_section(h, ".strtab");
 
-   if (!symtab || !strtab) {
-      fprintf(stderr, "ERROR: no .symtab or .strtab in the binary\n");
+   if (!strtab) {
+      fprintf(stderr, "ERROR: no .strtab in the binary\n");
       return 1;
    }
-
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / sizeof(Elf_Sym);
 
    for (unsigned i = 0; i < sym_count; i++) {
 
@@ -1111,7 +1146,7 @@ get_sym_info(struct elf_file_info *nfo, const char *sym_name)
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -1153,7 +1188,7 @@ set_sym_bind(struct elf_file_info *nfo,
    unsigned long bind_n;
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -1161,12 +1196,12 @@ set_sym_bind(struct elf_file_info *nfo,
    bind_n = strtoul(bind_str, &endptr, 10);
 
    if (errno || endptr != exp_end) {
-      fprintf(stderr, "error: invalid bind param\n");
+      fprintf(stderr, "ERROR: invalid bind param\n");
       return 1;
    }
 
    if (bind_n > STB_HIPROC) {
-      fprintf(stderr, "error: bind is too high");
+      fprintf(stderr, "ERROR: bind is too high");
       return 1;
    }
 
@@ -1186,7 +1221,7 @@ set_sym_type(struct elf_file_info *nfo,
    unsigned long type_n;
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -1194,12 +1229,12 @@ set_sym_type(struct elf_file_info *nfo,
    type_n = strtoul(type_str, &endptr, 10);
 
    if (errno || endptr != exp_end) {
-      fprintf(stderr, "error: invalid type param\n");
+      fprintf(stderr, "ERROR: invalid type param\n");
       return 1;
    }
 
    if (type_n > STT_HIPROC) {
-      fprintf(stderr, "error: type is too high");
+      fprintf(stderr, "ERROR: type is too high");
       return 1;
    }
 
@@ -1210,11 +1245,19 @@ set_sym_type(struct elf_file_info *nfo,
 static int
 undef_sym(struct elf_file_info *nfo, const char *sym_name)
 {
+   unsigned sym_count;
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms) {
+      fprintf(stderr, "ERROR: No symbol table\n");
+      return 1;
+   }
+
    Elf_Sym *sym = get_symbol(h, sym_name);
 
    if (!sym) {
-      fprintf(stderr, "Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
       return 1;
    }
 
@@ -1223,6 +1266,8 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
    sym->st_shndx = 0;
    sym->st_value = 0;
    sym->st_size = 0;
+
+
    return 0;
 }
 
@@ -1274,15 +1319,12 @@ swap_symbols(struct elf_file_info *nfo,
              const char *index1_str,
              const char *index2_str)
 {
-   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *symtab;
-   Elf_Sym *syms;
    unsigned sym_count;
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
-   symtab = get_section(h, ".symtab");
-
-   if (!symtab) {
-      fprintf(stderr, "No symbol table!");
+   if (!syms) {
+      fprintf(stderr, "ERROR: No symbol table!\n");
       return 1;
    }
 
@@ -1298,31 +1340,17 @@ swap_symbols(struct elf_file_info *nfo,
       return 1;
    }
 
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   sym_count = symtab->sh_size / symtab->sh_entsize;
-
    if (idx1 > (int)sym_count) {
-      fprintf(stderr, "Symbol index %d out of bounds", idx1);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
       return 1;
    }
 
    if (idx2 > (int)sym_count) {
-      fprintf(stderr, "Symbol index %d out of bounds", idx2);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
       return 1;
    }
 
-   Elf_Sym tmp = syms[idx1];
-   syms[idx1] = syms[idx2];
-   syms[idx2] = tmp;
-
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   for (uint32_t i = 0; i < h->e_shnum; i++) {
-      Elf_Shdr *s = sections + i;
-      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
-         redirect_rel_internal_index(h, s, idx1, idx2, true);
-      }
-   }
-
+   swap_symbols_index(h, idx1, idx2);
    return 0;
 }
 

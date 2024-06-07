@@ -241,7 +241,7 @@ elf_calc_mem_size(Elf_Ehdr *h)
    return max_pend - min_pbegin;
 }
 
-Elf_Sym *
+static Elf_Sym *
 get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
 {
    Elf_Shdr *symtab;
@@ -277,14 +277,14 @@ get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
    return NULL;
 }
 
-Elf_Shdr *
+static Elf_Shdr *
 get_sym_section(Elf_Ehdr *h, Elf_Sym *sym)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    return sections + sym->st_shndx;
 }
 
-const char *
+static const char *
 get_section_name(Elf_Ehdr *h, Elf_Shdr *section)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
@@ -299,7 +299,7 @@ get_section_name(Elf_Ehdr *h, Elf_Shdr *section)
           section_header_strtab->sh_offset + section->sh_name;
 }
 
-Elf_Phdr *
+static Elf_Phdr *
 get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
 {
    Elf_Phdr *phdrs = (Elf_Phdr *)((char*)h + h->e_phoff);
@@ -318,7 +318,7 @@ get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
    return NULL;
 }
 
-void
+static void
 remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
 {
    if (rela_sec->sh_type != SHT_REL && rela_sec->sh_type != SHT_RELA)
@@ -412,7 +412,7 @@ redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
 
 /* --- Actual commands --- */
 
-int
+static int
 section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -427,7 +427,7 @@ section_bin_dump(struct elf_file_info *nfo, const char *section_name)
    return 0;
 }
 
-int
+static int
 copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -477,7 +477,7 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
    return 0;
 }
 
-int
+static int
 rename_section(struct elf_file_info *nfo,
                const char *section_name,
                const char *new_name)
@@ -508,7 +508,7 @@ rename_section(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 link_sections(struct elf_file_info *nfo,
               const char *section_name,
               const char *linked)
@@ -540,7 +540,7 @@ link_sections(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 move_metadata(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -577,7 +577,7 @@ move_metadata(struct elf_file_info *nfo)
    return 0;
 }
 
-int
+static int
 drop_last_section(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -659,7 +659,7 @@ drop_last_section(struct elf_file_info *nfo)
    return 0;
 }
 
-int
+static int
 set_phdr_rwx_flags(struct elf_file_info *nfo,
                    const char *phdr_index,
                    const char *flags)
@@ -718,7 +718,7 @@ set_phdr_rwx_flags(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 verify_flat_elf_file(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -783,7 +783,7 @@ verify_flat_elf_file(struct elf_file_info *nfo)
    return 0;
 }
 
-int
+static int
 check_entry_point(struct elf_file_info *nfo, const char *exp)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -811,7 +811,7 @@ check_entry_point(struct elf_file_info *nfo, const char *exp)
    return 0;
 }
 
-int
+static int
 check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
 {
    size_t sz = elf_calc_mem_size(nfo->vaddr);
@@ -845,7 +845,7 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
    return 0;
 }
 
-int
+static int
 set_sym_strval(struct elf_file_info *nfo,
                const char *section_name,
                const char *sym_name,
@@ -898,7 +898,7 @@ set_sym_strval(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 dump_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -921,7 +921,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
-int
+static int
 get_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -936,7 +936,7 @@ get_sym(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
-int
+static int
 get_text_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -966,7 +966,7 @@ get_text_sym(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
-int
+static int
 list_text_syms(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -1011,7 +1011,7 @@ list_text_syms(struct elf_file_info *nfo)
 }
 
 
-const char *
+static const char *
 sym_get_bind_str(unsigned bind)
 {
    switch (bind) {
@@ -1040,7 +1040,7 @@ sym_get_bind_str(unsigned bind)
    return "?";
 }
 
-const char *
+static const char *
 sym_get_type_str(unsigned type)
 {
    switch (type) {
@@ -1081,7 +1081,7 @@ sym_get_type_str(unsigned type)
    return "?";
 }
 
-const char *
+static const char *
 sym_get_visibility_str(unsigned visibility)
 {
    switch (visibility) {
@@ -1102,7 +1102,7 @@ sym_get_visibility_str(unsigned visibility)
    return "?";
 }
 
-int
+static int
 get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -1141,7 +1141,7 @@ get_sym_info(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
-int
+static int
 set_sym_bind(struct elf_file_info *nfo,
              const char *sym_name,
              const char *bind_str)
@@ -1174,7 +1174,7 @@ set_sym_bind(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 set_sym_type(struct elf_file_info *nfo,
              const char *sym_name,
              const char *type_str)
@@ -1207,7 +1207,7 @@ set_sym_type(struct elf_file_info *nfo,
    return 0;
 }
 
-int
+static int
 undef_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -1226,7 +1226,7 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
    return 0;
 }
 
-int
+static int
 undef_section(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -1241,7 +1241,7 @@ undef_section(struct elf_file_info *nfo, const char *section_name)
    return 0;
 }
 
-int
+static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -1269,7 +1269,7 @@ redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
    return 0;
 }
 
-int
+static int
 swap_symbols(struct elf_file_info *nfo,
              const char *index1_str,
              const char *index2_str)

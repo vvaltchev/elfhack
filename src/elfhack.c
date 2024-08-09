@@ -37,11 +37,45 @@ typedef int (*cmd_func_3)(struct elf_file_info *,
                           const char *);
 
 struct elfhack_cmd {
+
+   struct elfhack_cmd *next;
+
    const char *opt;
    const char *help;
    int nargs;
    void *func;
 };
+
+struct elfhack_cmd *options_head;
+struct elfhack_cmd *options_tail;
+
+void register_cmd_struct(struct elfhack_cmd *cmd)
+{
+   if (!options_tail) {
+
+      assert(!options_head);
+      options_head = cmd;
+      options_tail = cmd;
+
+   } else {
+
+      options_tail->next = cmd;
+      options_tail = cmd;
+   }
+}
+
+#define REGISTER_CMD(name, long_opt, help_str, nargs_val, handler)   \
+   static struct elfhack_cmd __cmd_##name = {                        \
+      .next = NULL,                                                  \
+      .opt = long_opt,                                               \
+      .help = help_str,                                              \
+      .nargs = nargs_val,                                            \
+      .func = handler                                                \
+   };                                                                \
+   static void __attribute__((constructor))                          \
+   __register_cmd_##name(void) {                                     \
+      register_cmd_struct(&__cmd_##name);                            \
+   }
 
 int show_help(struct elf_file_info *nfo);
 
@@ -857,169 +891,190 @@ swap_symbols(struct elf_file_info *nfo,
    return 0;
 }
 
-static struct elfhack_cmd cmds_list[] =
-{
-   {
-      .opt = "--help",
-      .help = "",
-      .nargs = 0,
-      .func = &show_help,
-   },
+REGISTER_CMD(
+   help,
+   "--help",
+   "",
+   0,
+   &show_help
+)
 
-   {
-      .opt = "--section-bin-dump",
-      .help = "<section name>",
-      .nargs = 1,
-      .func = &section_bin_dump,
-   },
+REGISTER_CMD(
+   section_bin_dump,
+   "--section-bin-dump",
+   "<section name>",
+   1,
+   &section_bin_dump
+)
 
-   {
-      .opt = "--move-metadata",
-      .help = "",
-      .nargs = 0,
-      .func = &move_metadata,
-   },
+REGISTER_CMD(
+   move_metadata,
+   "--move-metadata",
+   "",
+   0,
+   &move_metadata
+)
 
-   {
-      .opt = "--copy",
-      .help = "<src section> <dest section>",
-      .nargs = 2,
-      .func = &copy_section,
-   },
+REGISTER_CMD(
+   copy,
+   "--copy",
+   "<src section> <dest section>",
+   2,
+   &copy_section
+)
 
-   {
-      .opt = "--rename",
-      .help = "<section> <new_name>",
-      .nargs = 2,
-      .func = &rename_section,
-   },
+REGISTER_CMD(
+   rename,
+   "--rename",
+   "<section> <new_name>",
+   2,
+   &rename_section
+)
 
-   {
-      .opt = "--link",
-      .help = "<section> <linked_section>",
-      .nargs = 2,
-      .func = &link_sections,
-   },
+REGISTER_CMD(
+   link,
+   "--link",
+   "<section> <linked_section>",
+   2,
+   &link_sections
+)
 
-   {
-      .opt = "--drop-last-section",
-      .help = "",
-      .nargs = 0,
-      .func = &drop_last_section,
-   },
+REGISTER_CMD(
+   drop_last_section,
+   "--drop-last-section",
+   "",
+   0,
+   &drop_last_section
+)
 
-   {
-      .opt = "--set-phdr-rwx-flags",
-      .help = "<phdr index> <rwx flags>",
-      .nargs = 2,
-      .func = &set_phdr_rwx_flags,
-   },
+REGISTER_CMD(
+   set_phdr_rwx_flags,
+   "--set-phdr-rwx-flags",
+   "<phdr index> <rwx flags>",
+   2,
+   &set_phdr_rwx_flags
+)
 
-   {
-      .opt = "--verify-flat-elf",
-      .help = "",
-      .nargs = 0,
-      .func = &verify_flat_elf_file,
-   },
+REGISTER_CMD(
+   verify_flat_elf,
+   "--verify-flat-elf",
+   "",
+   0,
+   &verify_flat_elf_file
+)
 
-   {
-      .opt = "--check-entry-point",
-      .help = "<expected>",
-      .nargs = 1,
-      .func = &check_entry_point,
-   },
+REGISTER_CMD(
+   check_entry_point,
+   "--check-entry-point",
+   "<expected>",
+   1,
+   &check_entry_point
+)
 
-   {
-      .opt = "--check-mem-size",
-      .help = "<expected_max> <b|kb>",
-      .nargs = 2,
-      .func = &check_mem_size,
-   },
+REGISTER_CMD(
+   check_mem_size,
+   "--check-mem-size",
+   "<expected_max> <b|kb>",
+   2,
+   &check_mem_size
+)
 
-   {
-      .opt = "--set-sym-strval",
-      .help = "<section> <sym> <string value>",
-      .nargs = 3,
-      .func = &set_sym_strval,
-   },
+REGISTER_CMD(
+   set_sym_strval,
+   "--set-sym-strval",
+   "<section> <sym> <string value>",
+   3,
+   &set_sym_strval
+)
 
-   {
-      .opt = "--dump-sym",
-      .help = "<sym_name>",
-      .nargs = 1,
-      .func = &dump_sym,
-   },
+REGISTER_CMD(
+   dump_sym,
+   "--dump-sym",
+   "<sym_name>",
+   1,
+   &dump_sym
+)
 
-   {
-      .opt = "--get-sym",
-      .help = "<sym_name>",
-      .nargs = 1,
-      .func = &get_sym,
-   },
+REGISTER_CMD(
+   get_sym,
+   "--get-sym",
+   "<sym_name>",
+   1,
+   &get_sym
+)
 
-   {
-      .opt = "--get-text-sym",
-      .help = "<sym_name>",
-      .nargs = 1,
-      .func = &get_text_sym,
-   },
+REGISTER_CMD(
+   get_text_sym,
+   "--get-text-sym",
+   "<sym_name>",
+   1,
+   &get_text_sym
+)
 
-   {
-      .opt = "--list-text-syms",
-      .help = "",
-      .nargs = 0,
-      .func = &list_text_syms,
-   },
+REGISTER_CMD(
+   list_text_syms,
+   "--list-text-syms",
+   "",
+   0,
+   &list_text_syms
+)
 
-   {
-      .opt = "--get-sym-info",
-      .help = "<sym_name>",
-      .nargs = 1,
-      .func = &get_sym_info,
-   },
+REGISTER_CMD(
+   get_sym_info,
+   "--get-sym-info",
+   "<sym_name>",
+   1,
+   &get_sym_info
+)
 
-   {
-      .opt = "--set-sym-bind",
-      .help = "<sym_name> <bind num>",
-      .nargs = 2,
-      .func = &set_sym_bind,
-   },
+REGISTER_CMD(
+   set_sym_bind,
+   "--set-sym-bind",
+   "<sym_name> <bind num>",
+   2,
+   &set_sym_bind
+)
 
-   {
-      .opt = "--set-sym-type",
-      .help = "<sym_name> <type num>",
-      .nargs = 2,
-      .func = &set_sym_type,
-   },
+REGISTER_CMD(
+   set_sym_type,
+   "--set-sym-type",
+   "<sym_name> <type num>",
+   2,
+   &set_sym_type
+)
 
-   {
-      .opt = "--undef-sym",
-      .help = "<sym_name> (breaks the symtab sorting!)",
-      .nargs = 1,
-      .func = &undef_sym,
-   },
+REGISTER_CMD(
+   undef_sym,
+   "--undef-sym",
+   "<sym_name> REGISTER_CMD(breaks the symtab sorting!)",
+   1,
+   &undef_sym
+)
 
-   {
-      .opt = "--undef-section",
-      .help = "<section_name>",
-      .nargs = 1,
-      .func = &undef_section,
-   },
+REGISTER_CMD(
+   undef_section,
+   "--undef-section",
+   "<section_name>",
+   1,
+   &undef_section
+)
 
-   {
-      .opt = "--redirect-reloc",
-      .help = "<sym1> <sym2>",
-      .nargs = 2,
-      .func = &redirect_reloc,
-   },
+REGISTER_CMD(
+   redirect_reloc,
+   "--redirect-reloc",
+   "<sym1> <sym2>",
+   2,
+   &redirect_reloc
+)
 
-   {
-      .opt = "--swap-symbols",
-      .help = "<index1> <index2> (EXPERIMENTAL)",
-      .nargs = 2,
-      .func = &swap_symbols,
-   },
-};
+REGISTER_CMD(
+   swap_symbols,
+   "--swap-symbols",
+   "<index1> <index2> (EXPERIMENTAL)",
+   2,
+   &swap_symbols
+)
+
 
 int
 show_help(struct elf_file_info *nfo)
@@ -1027,9 +1082,10 @@ show_help(struct elf_file_info *nfo)
    UNUSED_VARIABLE(nfo);
    fprintf(stderr, "Usage:\n");
 
-   for (int i = 0; i < ARRAY_SIZE(cmds_list); i++) {
-      struct elfhack_cmd *c = &cmds_list[i];
+   struct elfhack_cmd *c = options_head;
+   while (c) {
       fprintf(stderr, "    elfhack <file> %s %s\n", c->opt, c->help);
+      c = c->next;
    }
 
    return 0;
@@ -1070,10 +1126,15 @@ elf_header_type_check(struct elf_file_info *nfo)
 struct elfhack_cmd *
 find_cmd(const char *opt)
 {
-   for (int i = 0; i < ARRAY_SIZE(cmds_list); i++) {
-      if (!strcmp(opt, cmds_list[i].opt)) {
-         return &cmds_list[i];
+   struct elfhack_cmd *cmd = options_head;
+   
+   while (cmd) {
+
+      if (!strcmp(opt, cmd->opt)) {
+         return cmd;
       }
+
+      cmd = cmd->next;
    }
 
    return NULL;
@@ -1094,7 +1155,7 @@ run_cmds(struct elf_file_info *nfo, int argc, char **argv)
 
       if (!cmd) {
 
-         cmd = &cmds_list[0];    /* help */
+         cmd = options_head;    /* help */
 
       } else {
 

@@ -11,6 +11,7 @@ list(APPEND
 
    SOURCES
    "src/elfhack.c"
+   "src/elf_utils.c"
 )
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)

@@ -12,6 +12,10 @@ list(APPEND
    SOURCES
    "src/elfhack.c"
    "src/elf_utils.c"
+   "src/section_cmds.c"
+   "src/symbol_cmds.c"
+   "src/segment_cmds.c"
+   "src/misc_cmds.c"
 )
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)

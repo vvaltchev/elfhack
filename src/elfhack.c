@@ -38,10 +38,10 @@ typedef int (*cmd_func_3)(struct elf_file_info *,
                           const char *);
 
 
-struct elfhack_cmd *options_head;
-struct elfhack_cmd *options_tail;
+struct elfhack_option *options_head;
+struct elfhack_option *options_tail;
 
-void register_cmd_struct(struct elfhack_cmd *cmd)
+void register_option(struct elfhack_option *cmd)
 {
    if (!options_tail) {
 
@@ -62,7 +62,7 @@ show_help(struct elf_file_info *nfo)
    UNUSED_VARIABLE(nfo);
    fprintf(stderr, "Usage:\n");
 
-   struct elfhack_cmd *c = options_head;
+   struct elfhack_option *c = options_head;
    while (c) {
       fprintf(stderr, "    elfhack <file> %s %s\n", c->opt, c->help);
       c = c->next;
@@ -112,10 +112,10 @@ elf_header_type_check(struct elf_file_info *nfo)
    return 0;
 }
 
-struct elfhack_cmd *
+struct elfhack_option *
 find_cmd(const char *opt)
 {
-   struct elfhack_cmd *cmd = options_head;
+   struct elfhack_option *cmd = options_head;
    
    while (cmd) {
 
@@ -132,7 +132,7 @@ find_cmd(const char *opt)
 int
 run_cmds(struct elf_file_info *nfo, int argc, char **argv)
 {
-   struct elfhack_cmd *cmd = NULL;
+   struct elfhack_option *cmd = NULL;
    const char *opt;
    int rc = 0;
 

@@ -2,9 +2,9 @@
 
 #pragma once
 
-struct elfhack_cmd {
+struct elfhack_option {
 
-   struct elfhack_cmd *next;
+   struct elfhack_option *next;
 
    const char *opt;
    const char *help;
@@ -12,11 +12,11 @@ struct elfhack_cmd {
    void *func;
 };
 
-void register_cmd_struct(struct elfhack_cmd *cmd);
+void register_option(struct elfhack_option *cmd);
 
 
 #define REGISTER_CMD(name, long_opt, help_str, nargs_val, handler)   \
-   static struct elfhack_cmd __cmd_##name = {                        \
+   static struct elfhack_option __cmd_##name = {                     \
       .next = NULL,                                                  \
       .opt = long_opt,                                               \
       .help = help_str,                                              \
@@ -25,5 +25,5 @@ void register_cmd_struct(struct elfhack_cmd *cmd);
    };                                                                \
    static void __attribute__((constructor))                          \
    __register_cmd_##name(void) {                                     \
-      register_cmd_struct(&__cmd_##name);                            \
+      register_option(&__cmd_##name);                                \
    }

@@ -40,7 +40,7 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   sym = get_symbol_by_name(h, sym_name, NULL);
+   sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "Unable to find the symbol '%s'\n", sym_name);
@@ -85,7 +85,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -117,7 +117,7 @@ static int
 get_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -182,7 +182,7 @@ static int
 get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
 
@@ -233,7 +233,7 @@ set_sym_bind(struct elf_file_info *nfo,
              const char *bind_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    const char *exp_end = bind_str + strlen(bind_str);
    char *endptr = NULL;
    unsigned long bind_n;
@@ -277,7 +277,7 @@ set_sym_type(struct elf_file_info *nfo,
              const char *type_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
    const char *exp_end = type_str + strlen(type_str);
    char *endptr = NULL;
    unsigned long type_n;
@@ -326,7 +326,7 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
       return 1;
    }
 
-   Elf_Sym *sym = get_symbol_by_name(h, sym_name, &index);
+   Elf_Sym *sym = get_symbol(h, sym_name, &index);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);

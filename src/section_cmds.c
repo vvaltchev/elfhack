@@ -40,6 +40,7 @@ REGISTER_CMD(
    &section_bin_dump
 )
 
+/* ------------------------------------------------------------------------- */
 
 static int
 copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
@@ -99,6 +100,7 @@ REGISTER_CMD(
    &copy_section
 )
 
+/* ------------------------------------------------------------------------- */
 
 static int
 rename_section(struct elf_file_info *nfo,
@@ -139,6 +141,7 @@ REGISTER_CMD(
    &rename_section
 )
 
+/* ------------------------------------------------------------------------- */
 
 static int
 link_sections(struct elf_file_info *nfo,
@@ -180,6 +183,8 @@ REGISTER_CMD(
    &link_sections
 )
 
+/* ------------------------------------------------------------------------- */
+
 static int
 undef_section(struct elf_file_info *nfo, const char *section_name)
 {
@@ -201,4 +206,96 @@ REGISTER_CMD(
    "<section_name>",
    1,
    &undef_section
+)
+
+/* ------------------------------------------------------------------------- */
+
+static int
+drop_last_section(struct elf_file_info *nfo)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   char *hc = (char *)h;
+   Elf_Shdr *sections = (Elf_Shdr *)(hc + h->e_shoff);
+   Elf_Shdr *shstrtab = sections + h->e_shstrndx;
+
+   Elf_Shdr *last_section = sections;
+   int last_section_index = 0;
+   Elf_Off last_offset = 0;
+
+   if (!h->e_shnum) {
+      fprintf(stderr, "ERROR: the ELF file has no sections!\n");
+      return 1;
+   }
+
+   for (uint32_t i = 0; i < h->e_shnum; i++) {
+
+      Elf_Shdr *s = sections + i;
+
+      if (s->sh_offset > last_offset) {
+         last_section = s;
+         last_offset = s->sh_offset;
+         last_section_index = i;
+      }
+   }
+
+   if (last_section == shstrtab) {
+      fprintf(stderr,
+              "The last section is .shstrtab and it cannot be removed!\n");
+      return 1;
+   }
+
+   if (last_section_index != h->e_shnum - 1) {
+
+      /*
+       * If the last section physically on file is not the last section in
+       * the table, we cannot just decrease h->e_shnum, otherwise we'll remove
+       * from the table an useful section. Therefore, in that case we just
+       * use the slot of the last_section to store the section metainfo of the
+       * section with the biggest index in the section table (last section in
+       * another sense).
+       */
+
+      *last_section = sections[h->e_shnum - 1];
+
+      /*
+       * If we're so unlucky that the section with the biggest index in the
+       * section table is also the special .shstrtab, we have to update its
+       * index in the ELF header as well.
+       */
+      if (h->e_shstrndx == h->e_shnum - 1) {
+         h->e_shstrndx = last_section_index;
+      }
+   }
+
+   /* Drop the last section from the section table */
+   h->e_shnum--;
+
+   /*
+    * Unlink all the sections depending on this one. Yes, this is rough,
+    * but it's fine. Users of this script MUST know exactly what they're doing.
+    * In particular, for the main use of this feature (drop of the old symtab
+    * and strtab), it is expected this function to be just used twice.
+    */
+   for (uint32_t i = 0; i < h->e_shnum; i++)
+      if ((int)sections[i].sh_link == last_section_index)
+         sections[i].sh_link = 0;
+
+   /* Physically remove the last section from the file, by truncating it */
+   if (ftruncate(nfo->fd, last_offset) < 0) {
+
+      fprintf(stderr, "ftruncate(%i, %li) failed with '%s'\n",
+              nfo->fd, last_offset, strerror(errno));
+
+      return 1;
+   }
+
+   return 0;
+}
+
+REGISTER_CMD(
+   drop_last_section,
+   "--drop-last-section",
+   "",
+   0,
+   &drop_last_section
 )

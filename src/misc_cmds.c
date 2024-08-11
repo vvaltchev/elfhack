@@ -54,87 +54,15 @@ move_metadata(struct elf_file_info *nfo)
    return 0;
 }
 
-static int
-drop_last_section(struct elf_file_info *nfo)
-{
-   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   char *hc = (char *)h;
-   Elf_Shdr *sections = (Elf_Shdr *)(hc + h->e_shoff);
-   Elf_Shdr *shstrtab = sections + h->e_shstrndx;
+REGISTER_CMD(
+   move_metadata,
+   "--move-metadata",
+   "",
+   0,
+   &move_metadata
+)
 
-   Elf_Shdr *last_section = sections;
-   int last_section_index = 0;
-   Elf_Off last_offset = 0;
-
-   if (!h->e_shnum) {
-      fprintf(stderr, "ERROR: the ELF file has no sections!\n");
-      return 1;
-   }
-
-   for (uint32_t i = 0; i < h->e_shnum; i++) {
-
-      Elf_Shdr *s = sections + i;
-
-      if (s->sh_offset > last_offset) {
-         last_section = s;
-         last_offset = s->sh_offset;
-         last_section_index = i;
-      }
-   }
-
-   if (last_section == shstrtab) {
-      fprintf(stderr,
-              "The last section is .shstrtab and it cannot be removed!\n");
-      return 1;
-   }
-
-   if (last_section_index != h->e_shnum - 1) {
-
-      /*
-       * If the last section physically on file is not the last section in
-       * the table, we cannot just decrease h->e_shnum, otherwise we'll remove
-       * from the table an useful section. Therefore, in that case we just
-       * use the slot of the last_section to store the section metainfo of the
-       * section with the biggest index in the section table (last section in
-       * another sense).
-       */
-
-      *last_section = sections[h->e_shnum - 1];
-
-      /*
-       * If we're so unlucky that the section with the biggest index in the
-       * section table is also the special .shstrtab, we have to update its
-       * index in the ELF header as well.
-       */
-      if (h->e_shstrndx == h->e_shnum - 1) {
-         h->e_shstrndx = last_section_index;
-      }
-   }
-
-   /* Drop the last section from the section table */
-   h->e_shnum--;
-
-   /*
-    * Unlink all the sections depending on this one. Yes, this is rough,
-    * but it's fine. Users of this script MUST know exactly what they're doing.
-    * In particular, for the main use of this feature (drop of the old symtab
-    * and strtab), it is expected this function to be just used twice.
-    */
-   for (uint32_t i = 0; i < h->e_shnum; i++)
-      if ((int)sections[i].sh_link == last_section_index)
-         sections[i].sh_link = 0;
-
-   /* Physically remove the last section from the file, by truncating it */
-   if (ftruncate(nfo->fd, last_offset) < 0) {
-
-      fprintf(stderr, "ftruncate(%i, %li) failed with '%s'\n",
-              nfo->fd, last_offset, strerror(errno));
-
-      return 1;
-   }
-
-   return 0;
-}
+/* ------------------------------------------------------------------------- */
 
 static int
 verify_flat_elf_file(struct elf_file_info *nfo)
@@ -201,6 +129,16 @@ verify_flat_elf_file(struct elf_file_info *nfo)
    return 0;
 }
 
+REGISTER_CMD(
+   verify_flat_elf,
+   "--verify-flat-elf",
+   "",
+   0,
+   &verify_flat_elf_file
+)
+
+/* ------------------------------------------------------------------------- */
+
 static int
 check_entry_point(struct elf_file_info *nfo, const char *exp)
 {
@@ -228,6 +166,16 @@ check_entry_point(struct elf_file_info *nfo, const char *exp)
 
    return 0;
 }
+
+REGISTER_CMD(
+   check_entry_point,
+   "--check-entry-point",
+   "<expected>",
+   1,
+   &check_entry_point
+)
+
+/* ------------------------------------------------------------------------- */
 
 static int
 check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
@@ -263,6 +211,16 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
    return 0;
 }
 
+REGISTER_CMD(
+   check_mem_size,
+   "--check-mem-size",
+   "<expected_max> <b|kb>",
+   2,
+   &check_mem_size
+)
+
+/* ------------------------------------------------------------------------- */
+
 static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
 {
@@ -291,99 +249,10 @@ redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
    return 0;
 }
 
-static int
-swap_symbols(struct elf_file_info *nfo,
-             const char *index1_str,
-             const char *index2_str)
-{
-   unsigned sym_count;
-   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
-
-   if (!syms) {
-      fprintf(stderr, "ERROR: No symbol table!\n");
-      return 1;
-   }
-
-   int idx1 = atoi(index1_str);
-   int idx2 = atoi(index2_str);
-
-   if (idx1 <= 0) {
-      fprintf(stderr, "Invalid symbol index: %s", index1_str);
-      return 1;
-   }
-   if (idx2 <= 0) {
-      fprintf(stderr, "Invalid symbol index: %s", index2_str);
-      return 1;
-   }
-
-   if (idx1 > (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
-      return 1;
-   }
-
-   if (idx2 > (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
-      return 1;
-   }
-
-   swap_symbols_index(h, idx1, idx2);
-   return 0;
-}
-
-REGISTER_CMD(
-   move_metadata,
-   "--move-metadata",
-   "",
-   0,
-   &move_metadata
-)
-
-REGISTER_CMD(
-   drop_last_section,
-   "--drop-last-section",
-   "",
-   0,
-   &drop_last_section
-)
-
-REGISTER_CMD(
-   verify_flat_elf,
-   "--verify-flat-elf",
-   "",
-   0,
-   &verify_flat_elf_file
-)
-
-REGISTER_CMD(
-   check_entry_point,
-   "--check-entry-point",
-   "<expected>",
-   1,
-   &check_entry_point
-)
-
-REGISTER_CMD(
-   check_mem_size,
-   "--check-mem-size",
-   "<expected_max> <b|kb>",
-   2,
-   &check_mem_size
-)
-
-
 REGISTER_CMD(
    redirect_reloc,
    "--redirect-reloc",
    "<sym1> <sym2>",
    2,
    &redirect_reloc
-)
-
-REGISTER_CMD(
-   swap_symbols,
-   "--swap-symbols",
-   "<index1> <index2> (EXPERIMENTAL)",
-   2,
-   &swap_symbols
 )

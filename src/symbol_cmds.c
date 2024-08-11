@@ -348,3 +348,53 @@ REGISTER_CMD(
    1,
    &undef_sym
 )
+
+/* ------------------------------------------------------------------------- */
+
+static int
+swap_symbols(struct elf_file_info *nfo,
+             const char *index1_str,
+             const char *index2_str)
+{
+   unsigned sym_count;
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms) {
+      fprintf(stderr, "ERROR: No symbol table!\n");
+      return 1;
+   }
+
+   int idx1 = atoi(index1_str);
+   int idx2 = atoi(index2_str);
+
+   if (idx1 <= 0) {
+      fprintf(stderr, "Invalid symbol index: %s", index1_str);
+      return 1;
+   }
+   if (idx2 <= 0) {
+      fprintf(stderr, "Invalid symbol index: %s", index2_str);
+      return 1;
+   }
+
+   if (idx1 > (int)sym_count) {
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
+      return 1;
+   }
+
+   if (idx2 > (int)sym_count) {
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
+      return 1;
+   }
+
+   swap_symbols_index(h, idx1, idx2);
+   return 0;
+}
+
+REGISTER_CMD(
+   swap_symbols,
+   "--swap-symbols",
+   "<index1> <index2> (EXPERIMENTAL)",
+   2,
+   &swap_symbols
+)

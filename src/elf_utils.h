@@ -49,6 +49,9 @@ get_symbol_name(Elf_Ehdr *h, Elf_Sym *s);
 Elf_Sym *
 get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index);
 
+Elf_Sym *
+get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *index);
+
 size_t
 elf_calc_mem_size(Elf_Ehdr *h);
 

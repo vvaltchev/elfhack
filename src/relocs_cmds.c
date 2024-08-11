@@ -42,6 +42,7 @@ redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
 REGISTER_CMD(
    redirect_reloc,
    "--redirect-reloc",
+   "-rr",
    "<sym1> <sym2>",
    2,
    &redirect_reloc

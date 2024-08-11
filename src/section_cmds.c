@@ -32,7 +32,8 @@ section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 REGISTER_CMD(
    section_bin_dump,
    "--section-bin-dump",
-   "<section name>",
+   "-d",
+   "<section>",
    1,
    &section_bin_dump
 )
@@ -92,6 +93,7 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
 REGISTER_CMD(
    copy,
    "--copy",
+   NULL, // short opt
    "<src section> <dest section>",
    2,
    &copy_section
@@ -133,6 +135,7 @@ rename_section(struct elf_file_info *nfo,
 REGISTER_CMD(
    rename,
    "--rename",
+   NULL, // short opt
    "<section> <new_name>",
    2,
    &rename_section
@@ -175,6 +178,7 @@ link_sections(struct elf_file_info *nfo,
 REGISTER_CMD(
    link,
    "--link",
+   NULL, // short opt
    "<section> <linked_section>",
    2,
    &link_sections
@@ -200,7 +204,8 @@ undef_section(struct elf_file_info *nfo, const char *section_name)
 REGISTER_CMD(
    undef_section,
    "--undef-section",
-   "<section_name>",
+   "-U", // short opt
+   "<section>",
    1,
    &undef_section
 )
@@ -292,7 +297,8 @@ drop_last_section(struct elf_file_info *nfo)
 REGISTER_CMD(
    drop_last_section,
    "--drop-last-section",
-   "",
+   NULL, // short opt
+   "Drop the last section and trucate the ELF file",
    0,
    &drop_last_section
 )

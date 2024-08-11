@@ -52,7 +52,8 @@ move_metadata(struct elf_file_info *nfo)
 REGISTER_CMD(
    move_metadata,
    "--move-metadata",
-   "",
+   NULL, // short opt
+   "Move the program headers and sections at the top of the ELF file",
    0,
    &move_metadata
 )
@@ -127,6 +128,7 @@ verify_flat_elf_file(struct elf_file_info *nfo)
 REGISTER_CMD(
    verify_flat_elf,
    "--verify-flat-elf",
+   NULL, // short opt
    "",
    0,
    &verify_flat_elf_file
@@ -165,6 +167,7 @@ check_entry_point(struct elf_file_info *nfo, const char *exp)
 REGISTER_CMD(
    check_entry_point,
    "--check-entry-point",
+   NULL, // short opt
    "<expected>",
    1,
    &check_entry_point
@@ -209,6 +212,7 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
 REGISTER_CMD(
    check_mem_size,
    "--check-mem-size",
+   NULL, // short opt
    "<expected_max> <b|kb>",
    2,
    &check_mem_size

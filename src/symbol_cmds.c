@@ -68,6 +68,7 @@ set_sym_strval(struct elf_file_info *nfo,
 REGISTER_CMD(
    set_sym_strval,
    "--set-sym-strval",
+   NULL, // short opt
    "<section> <sym> <string value>",
    3,
    &set_sym_strval
@@ -101,6 +102,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
 REGISTER_CMD(
    dump_sym,
    "--dump-sym",
+   "-ds",
    "<sym_name>",
    1,
    &dump_sym
@@ -126,6 +128,7 @@ get_sym(struct elf_file_info *nfo, const char *sym_name)
 REGISTER_CMD(
    get_sym,
    "--get-sym",
+   "-v", // short opt
    "<sym_name>",
    1,
    &get_sym
@@ -166,6 +169,7 @@ list_syms(struct elf_file_info *nfo)
 REGISTER_CMD(
    list_syms,
    "--list-syms",
+   "-s", // short opt
    "",
    0,
    &list_syms
@@ -215,6 +219,7 @@ get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 REGISTER_CMD(
    get_sym_info,
    "--get-sym-info",
+   "-si", // short opt
    "<sym_name>",
    1,
    &get_sym_info
@@ -258,6 +263,7 @@ set_sym_bind(struct elf_file_info *nfo,
 REGISTER_CMD(
    set_sym_bind,
    "--set-sym-bind",
+   NULL, // short opt
    "<sym_name> <bind num>",
    2,
    &set_sym_bind
@@ -302,6 +308,7 @@ set_sym_type(struct elf_file_info *nfo,
 REGISTER_CMD(
    set_sym_type,
    "--set-sym-type",
+   NULL, // short opt
    "<sym_name> <type num>",
    2,
    &set_sym_type
@@ -339,6 +346,7 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
 REGISTER_CMD(
    undef_sym,
    "--undef-sym",
+   "-u", // short opt
    "<sym_name> (breaks the symtab sorting!)",
    1,
    &undef_sym
@@ -389,6 +397,7 @@ swap_symbols(struct elf_file_info *nfo,
 REGISTER_CMD(
    swap_symbols,
    "--swap-symbols",
+   NULL, // short opt
    "<index1> <index2> (EXPERIMENTAL)",
    2,
    &swap_symbols

@@ -59,12 +59,25 @@ void register_option(struct elfhack_option *cmd)
 int
 show_help(struct elf_file_info *nfo)
 {
+   char buf[256];
    UNUSED_VARIABLE(nfo);
    fprintf(stderr, "Usage:\n");
 
    struct elfhack_option *c = options_head;
+
    while (c) {
-      fprintf(stderr, "    elfhack <file> %s %s\n", c->opt, c->help);
+
+      assert(c->long_opt);
+
+      if (!c->short_opt) {
+         sprintf(buf, "    elfhack <file>     %s", c->long_opt);
+
+      } else {
+         sprintf(buf, "    elfhack <file> %-3s %s",
+                 c->short_opt, c->long_opt);
+      }
+
+      fprintf(stderr, "%-50s %s\n", buf, c->help);
       c = c->next;
    }
 
@@ -74,7 +87,8 @@ show_help(struct elf_file_info *nfo)
 REGISTER_CMD(
    help,
    "--help",
-   "",
+   "-h",
+   "Show the help message",
    0,
    &show_help
 )
@@ -113,17 +127,26 @@ elf_header_type_check(struct elf_file_info *nfo)
 }
 
 struct elfhack_option *
-find_cmd(const char *opt)
+find_cmd(const char *opt_string)
 {
-   struct elfhack_option *cmd = options_head;
-   
-   while (cmd) {
+   struct elfhack_option *opt = options_head;
 
-      if (!strcmp(opt, cmd->opt)) {
-         return cmd;
+   if (!opt_string)
+      return NULL;
+
+   while (opt) {
+
+      assert(opt->long_opt);
+
+      if (!strcmp(opt_string, opt->long_opt)) {
+         return opt;
       }
 
-      cmd = cmd->next;
+      if (opt->short_opt && !strcmp(opt_string, opt->short_opt)) {
+         return opt;
+      }
+
+      opt = opt->next;
    }
 
    return NULL;
@@ -179,6 +202,37 @@ run_cmds(struct elf_file_info *nfo, int argc, char **argv)
    return rc;
 }
 
+static void
+validate_tool_options(void)
+{
+   struct elfhack_option *opt = options_head;
+   struct elfhack_option *t;
+
+   while (opt) {
+
+      t = find_cmd(opt->long_opt);
+      if (t != opt) {
+         fprintf(stderr,
+                 "FATAL: long option '%s' is used by multiple "
+                 "options/commands", opt->long_opt);
+         abort();
+      }
+
+      if (opt->short_opt) {
+         t = find_cmd(opt->short_opt);
+         if (t != opt) {
+            fprintf(stderr,
+                  "FATAL: short option '%s' is used both by "
+                  "'%s' and by '%s'\n",
+                  opt->short_opt, opt->long_opt, t->long_opt);
+            abort();
+         }
+      }
+
+      opt = opt->next;
+   }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -186,6 +240,8 @@ main(int argc, char **argv)
    struct stat statbuf;
    size_t page_size;
    int rc;
+
+   validate_tool_options();
 
    if (argc <= 1 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")) {
       show_help(NULL);

@@ -74,6 +74,7 @@ set_phdr_rwx_flags(struct elf_file_info *nfo,
 REGISTER_CMD(
    set_phdr_rwx_flags,
    "--set-phdr-rwx-flags",
+   NULL, // short opt
    "<phdr index> <rwx flags>",
    2,
    &set_phdr_rwx_flags

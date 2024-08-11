@@ -6,11 +6,6 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #include "basic_defs.h"
 #include "elf_utils.h"

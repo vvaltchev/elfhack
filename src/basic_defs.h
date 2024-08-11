@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 
 #pragma once
+#include <stdbool.h>
 
 #define KB           (1024)
 #define MB      (1024 * KB)

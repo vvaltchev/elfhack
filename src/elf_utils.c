@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <errno.h>
 
+#include "misc.h"
 #include "elf_utils.h"
 
 const char *
@@ -269,7 +270,7 @@ get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index)
 Elf_Sym *
 get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
 {
-   if (*name_or_index == '#') {
+   if (is_index_string(name_or_index)) {
 
       /*
        * The user passed a symbol index, let's just check that by accident we don't
@@ -281,8 +282,8 @@ get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
 
       if (sym) {
          fprintf(stderr,
-                 "ERROR: cannot specify a symbol by index using '%s' "
-                 "because symbol at index %u has actually that name\n",
+                 "ERROR: cannot specify a symbol using the index string '%s' "
+                 "because symbol at index %u has actually that name.\n",
                  name_or_index, index);
          exit(1);
       }

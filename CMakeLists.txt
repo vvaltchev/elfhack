@@ -17,6 +17,7 @@ list(APPEND
    "src/segment_cmds.c"
    "src/misc_cmds.c"
    "src/relocs_cmds.c"
+   "src/misc.c"
 )
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)

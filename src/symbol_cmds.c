@@ -33,14 +33,14 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   section = get_section(h, section_name);
+   section = get_section_by_name(h, section_name);
 
    if (!section) {
       fprintf(stderr, "No section '%s'\n", section_name);
       return 1;
    }
 
-   sym = get_symbol(h, sym_name, NULL);
+   sym = get_symbol_by_name(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "Unable to find the symbol '%s'\n", sym_name);
@@ -85,7 +85,7 @@ dump_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -117,7 +117,7 @@ static int
 get_sym(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
@@ -140,13 +140,10 @@ REGISTER_CMD(
 
 
 static int
-list_text_syms(struct elf_file_info *nfo)
+list_syms(struct elf_file_info *nfo)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *text = get_section(h, ".text");
    Elf_Shdr *strtab;
-   unsigned text_sh_index;
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
@@ -155,13 +152,7 @@ list_text_syms(struct elf_file_info *nfo)
       return 1;
    }
 
-   if (!text) {
-      fprintf(stderr, "ERROR: cannot find the .text section\n");
-      return 1;
-   }
-
-   text_sh_index = text - sections;
-   strtab = get_section(h, ".strtab");
+   strtab = get_section_by_name(h, ".strtab");
 
    if (!strtab) {
       fprintf(stderr, "ERROR: no .strtab in the binary\n");
@@ -169,13 +160,8 @@ list_text_syms(struct elf_file_info *nfo)
    }
 
    for (unsigned i = 0; i < sym_count; i++) {
-
       Elf_Sym *s = syms + i;
-      const char *s_name = (char *)h + strtab->sh_offset + s->st_name;
-
-      if (s->st_shndx != text_sh_index)
-         continue;
-
+      const char *s_name = get_symbol_name(h, s);
       printf("%s\n", s_name);
    }
 
@@ -183,11 +169,11 @@ list_text_syms(struct elf_file_info *nfo)
 }
 
 REGISTER_CMD(
-   list_text_syms,
-   "--list-text-syms",
+   list_syms,
+   "--list-syms",
    "",
    0,
-   &list_text_syms
+   &list_syms
 )
 
 /* ------------------------------------------------------------------------- */
@@ -196,7 +182,7 @@ static int
 get_sym_info(struct elf_file_info *nfo, const char *sym_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
 
@@ -247,7 +233,7 @@ set_sym_bind(struct elf_file_info *nfo,
              const char *bind_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
    const char *exp_end = bind_str + strlen(bind_str);
    char *endptr = NULL;
    unsigned long bind_n;
@@ -291,7 +277,7 @@ set_sym_type(struct elf_file_info *nfo,
              const char *type_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, NULL);
    const char *exp_end = type_str + strlen(type_str);
    char *endptr = NULL;
    unsigned long type_n;
@@ -340,7 +326,7 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
       return 1;
    }
 
-   Elf_Sym *sym = get_symbol(h, sym_name, &index);
+   Elf_Sym *sym = get_symbol_by_name(h, sym_name, &index);
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);

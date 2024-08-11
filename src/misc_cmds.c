@@ -263,13 +263,12 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
    return 0;
 }
 
-
 static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *s1 = get_symbol(h, sym1, NULL);
-   Elf_Sym *s2 = get_symbol(h, sym2, NULL);
+   Elf_Sym *s1 = get_symbol_by_name(h, sym1, NULL);
+   Elf_Sym *s2 = get_symbol_by_name(h, sym2, NULL);
 
    if (!s1) {
       fprintf(stderr, "Cannot find symbol '%s'\n", sym1);

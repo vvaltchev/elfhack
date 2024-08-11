@@ -98,10 +98,11 @@ sym_get_visibility_str(unsigned visibility)
 }
 
 Elf_Shdr *
-get_section(Elf_Ehdr *h, const char *section_name)
+get_section_by_name(Elf_Ehdr *h, const char *section_name)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+   Elf_Shdr *result = NULL;
 
    for (uint32_t i = 0; i < h->e_shnum; i++) {
 
@@ -109,26 +110,44 @@ get_section(Elf_Ehdr *h, const char *section_name)
       char *name = (char *)h + section_header_strtab->sh_offset + s->sh_name;
 
       if (!strcmp(name, section_name)) {
-         return s;
+
+         if (!result) {
+            result = s;
+         } else {
+            fprintf(stderr, "ERROR: multiple sections named '%s'\n", section_name);
+            exit(1);
+         }
       }
    }
 
-   return NULL;
+   return result;
 }
 
 int
 get_section_index(Elf_Ehdr *h, Elf_Shdr *sec)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   for (uint32_t i = 0; i < h->e_shnum; i++) {
+   const ptrdiff_t index = sec - sections;
 
-      Elf_Shdr *s = sections + i;
-
-      if (s == sec)
-         return (int)i;
+   if (index < 0 || index >= h->e_shnum) {
+      fprintf(stderr, "ERROR: invalid section pointer %p\n", sec);
+      exit(1);
    }
 
-   return -1;
+   return (int)index;
+}
+
+Elf_Shdr *
+get_section_by_index(Elf_Ehdr *h, unsigned index)
+{
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+
+   if (index >= h->e_shnum) {
+      fprintf(stderr, "ERROR: invalid section index %u\n", index);
+      exit(1);
+   }
+
+   return sections + index;
 }
 
 Elf_Sym *
@@ -136,7 +155,7 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
 {
    Elf_Shdr *symtab;
    Elf_Sym *syms;
-   symtab = get_section(h, ".symtab");
+   symtab = get_section_by_name(h, ".symtab");
 
    if (!symtab) {
       return NULL;
@@ -152,24 +171,25 @@ get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
 {
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+   ptrdiff_t index;
 
    if (!syms)
       return -1;
 
-   for (unsigned i = 0; i < sym_count; i++) {
-      Elf_Sym *s = syms + i;
-      if (s == symbol)
-         return i;
+   index = symbol - syms;
+   if (index < 0 || index > sym_count) {
+      fprintf(stderr, "ERROR: Invalid symbol pointer %p\n", symbol);
+      exit(1);
    }
 
-   return -1;
+   return (int)index;
 }
 
 const char *
 get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *strtab = get_section(h, ".strtab");
+   Elf_Shdr *strtab = get_section_by_name(h, ".strtab");
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
    const char *name = NULL;
 
@@ -188,10 +208,30 @@ get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 }
 
 Elf_Sym *
-get_symbol(Elf_Ehdr *h, const char *sym_name, unsigned *index)
+get_symbol_by_index(Elf_Ehdr *h, unsigned index)
 {
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+
+   if (!syms) {
+      fprintf(stderr, "Warning: no symbol table\n");
+      return NULL;
+   }
+
+   if (index > sym_count) {
+      fprintf(stderr, "ERROR: invalid symbol index %u\n", index);
+      exit(1);
+   }
+
+   return syms + index;
+}
+
+Elf_Sym *
+get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index)
+{
+   unsigned sym_count;
+   Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+   Elf_Sym *result = NULL;
 
    if (!syms)
       return NULL;
@@ -202,17 +242,27 @@ get_symbol(Elf_Ehdr *h, const char *sym_name, unsigned *index)
       const char *s_name = get_symbol_name(h, s);
 
       if (!s_name)
-         continue;
+         continue; // unnamed symbol: skip
 
-      if (!strcmp(s_name, sym_name)) {
+      if (strcmp(s_name, sym_name))
+         continue; // no match
+
+      // the symbol name matches
+
+      if (!result) {
+
          if (index) {
             *index = i;
          }
-         return s;
+         result = s;
+
+      } else {
+         fprintf(stderr, "ERROR: multiple symbols named '%s'\n", sym_name);
+         exit(1);
       }
    }
 
-   return NULL;
+   return result;
 }
 
 size_t

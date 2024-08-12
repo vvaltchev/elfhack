@@ -69,7 +69,7 @@ REGISTER_CMD(
    set_sym_strval,
    "--set-sym-strval",
    NULL, // short opt
-   "<section> <sym> <string value>",
+   "<section> <symbol> <string value>",
    3,
    &set_sym_strval
 )
@@ -103,7 +103,7 @@ REGISTER_CMD(
    dump_sym,
    "--dump-sym",
    "-ds",
-   "<sym_name>",
+   "<symbol>",
    1,
    &dump_sym
 )
@@ -129,7 +129,7 @@ REGISTER_CMD(
    get_sym,
    "--get-sym",
    "-v", // short opt
-   "<sym_name>",
+   "<symbol>",
    1,
    &get_sym
 )
@@ -220,7 +220,7 @@ REGISTER_CMD(
    get_sym_info,
    "--get-sym-info",
    "-si", // short opt
-   "<sym_name>",
+   "<symbol>",
    1,
    &get_sym_info
 )
@@ -264,7 +264,7 @@ REGISTER_CMD(
    set_sym_bind,
    "--set-sym-bind",
    NULL, // short opt
-   "<sym_name> <bind num>",
+   "<symbol> <bind num>",
    2,
    &set_sym_bind
 )
@@ -309,7 +309,7 @@ REGISTER_CMD(
    set_sym_type,
    "--set-sym-type",
    NULL, // short opt
-   "<sym_name> <type num>",
+   "<symbol> <type num>",
    2,
    &set_sym_type
 )
@@ -347,7 +347,7 @@ REGISTER_CMD(
    undef_sym,
    "--undef-sym",
    "-u", // short opt
-   "<sym_name> (breaks the symtab sorting!)",
+   "<symbol> (breaks the symtab sorting!)",
    1,
    &undef_sym
 )

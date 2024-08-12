@@ -43,7 +43,7 @@ REGISTER_CMD(
    redirect_reloc,
    "--redirect-reloc",
    "-rr",
-   "<sym1> <sym2>",
+   "<symbol1> <symbol2>",
    2,
    &redirect_reloc
 )

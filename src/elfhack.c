@@ -94,6 +94,7 @@ REGISTER_CMD(
 )
 
 
+
 int
 elf_header_type_check(struct elf_file_info *nfo)
 {
@@ -127,7 +128,7 @@ elf_header_type_check(struct elf_file_info *nfo)
 }
 
 struct elfhack_option *
-find_cmd(const char *opt_string)
+find_option_by_cmdline_string(const char *opt_string)
 {
    struct elfhack_option *opt = options_head;
 
@@ -152,51 +153,155 @@ find_cmd(const char *opt_string)
    return NULL;
 }
 
-int
-run_cmds(struct elf_file_info *nfo, int argc, char **argv)
+struct elfhack_option *
+find_option_by_name(const char *name)
 {
-   struct elfhack_option *cmd = NULL;
-   const char *opt;
+   struct elfhack_option *opt = options_head;
+
+   while (opt) {
+
+      if (!strcmp(opt->name, name))
+         return opt;
+
+      opt = opt->next;
+   }
+
+   return NULL;
+}
+
+bool
+get_boolean_option_val(const char *name)
+{
+   struct elfhack_option *opt = find_option_by_name(name);
+
+   if (opt) {
+      return opt->boolean_value;
+   }
+
+   return false;
+}
+
+int
+process_option_type_action(struct elf_file_info *nfo,
+                           struct elfhack_option *opt,
+                           int *argc,
+                           char **argv)
+{
+   int rc;
+   assert(opt->type == ELFHACK_ACTION);
+
+   switch (opt->nargs) {
+      case 0:
+         rc = ((cmd_func_0)opt->func)(nfo);
+         break;
+      case 1:
+         rc = ((cmd_func_1)opt->func)(nfo, argv[0]);
+         break;
+      case 2:
+         rc = ((cmd_func_2)opt->func)(nfo, argv[0], argv[1]);
+         break;
+      case 3:
+         rc = ((cmd_func_3)opt->func)(nfo, argv[0], argv[1], argv[2]);
+         break;
+      default:
+         abort();
+   }
+
+   *argc -= opt->nargs;
+   return rc;
+}
+
+int
+process_option_type_flag(struct elf_file_info *nfo,
+                         struct elfhack_option *opt,
+                         int *argc,
+                         char **argv)
+{
+   UNUSED_VARIABLE(nfo);
+   UNUSED_VARIABLE(argv);
+
+   assert(opt->type == ELFHACK_FLAG);
+
+   if (*argc > 0 && !strcmp(argv[0], "false")) {
+      opt->boolean_value = false;
+      (*argc)--;
+   } else if (*argc > 0 && !strcmp(argv[0], "true")) {
+      opt->boolean_value = true;
+      (*argc)--;
+   } else {
+      /* No extra param, assume implict true */
+      opt->boolean_value = true;
+   }
+
+   return 0;
+}
+
+int
+process_all_options(struct elf_file_info *nfo,
+                    int argc,
+                    char **argv)
+{
+   struct elfhack_option *opt = NULL;
+   const char *opt_string;
    int rc = 0;
+   int nargs;
+   int argc_new;
 
    while (argc > 0 && argv[0]) {
 
-      opt = argv[0];
-      cmd = find_cmd(opt);
+      opt_string = argv[0];
+      opt = find_option_by_cmdline_string(opt_string);
       argc--; argv++;
 
-      if (!cmd) {
-
-         cmd = options_head;    /* help */
-
-      } else {
-
-         if (argc < cmd->nargs) {
-            fprintf(stderr, "ERROR: Invalid number of arguments for %s "
-                    "(expected: %d, got: %d).\n", opt, cmd->nargs, argc);
-            return 1;
-         }
+      if (!opt) {
+         printf("ERROR: option '%s' not recognized\n", opt_string);
+         show_help(NULL);
+         return 1;
       }
 
-      switch (cmd->nargs) {
-         case 0:
-            rc = ((cmd_func_0)cmd->func)(nfo);
+      switch (opt->type) {
+         case ELFHACK_ACTION:
+            nargs = opt->nargs;
             break;
-         case 1:
-            rc = ((cmd_func_1)cmd->func)(nfo, argv[0]);
-            break;
-         case 2:
-            rc = ((cmd_func_2)cmd->func)(nfo, argv[0], argv[1]);
-            break;
-         case 3:
-            rc = ((cmd_func_3)cmd->func)(nfo, argv[0], argv[1], argv[2]);
+         case ELFHACK_FLAG:
+            nargs = 0;
             break;
          default:
-            abort();
+            abort(); /* unknown type */
       }
 
-      argc += cmd->nargs;
-      argv += cmd->nargs;
+      if (argc < nargs) {
+         fprintf(stderr,
+                 "ERROR: Invalid number of arguments for %s "
+                 "(expected: %d, got: %d).\n", opt_string, nargs, argc);
+         return 1;
+      }
+
+      argc_new = argc;
+      switch (opt->type) {
+         case ELFHACK_ACTION:
+            rc = process_option_type_action(nfo, opt, &argc_new, argv);
+            break;
+         case ELFHACK_FLAG:
+            rc = process_option_type_flag(nfo, opt, &argc_new, argv);
+            break;
+         default:
+            abort(); /* unknown type */
+      }
+
+      if (rc) {
+         /* We got an error, stop processing. */
+         break;
+      }
+
+      /* The remaining arguments cannot be less then 0 */
+      assert(argc_new >= 0);
+
+      /* The option must have consumed at least `nargs` */
+      assert(argc - argc_new >= nargs);
+
+      argv += (argc - argc_new);
+      argc = argc_new;
    }
 
    return rc;
@@ -210,7 +315,7 @@ validate_tool_options(void)
 
    while (opt) {
 
-      t = find_cmd(opt->long_opt);
+      t = find_option_by_cmdline_string(opt->long_opt);
       if (t != opt) {
          fprintf(stderr,
                  "FATAL: long option '%s' is used by multiple "
@@ -219,7 +324,7 @@ validate_tool_options(void)
       }
 
       if (opt->short_opt) {
-         t = find_cmd(opt->short_opt);
+         t = find_option_by_cmdline_string(opt->short_opt);
          if (t != opt) {
             fprintf(stderr,
                   "FATAL: short option '%s' is used both by "
@@ -290,7 +395,7 @@ main(int argc, char **argv)
       goto end;
    }
 
-   rc = run_cmds(&nfo, argc - 2, argv + 2);
+   rc = process_all_options(&nfo, argc - 2, argv + 2);
 
 end:
    if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {

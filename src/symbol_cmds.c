@@ -170,7 +170,7 @@ REGISTER_CMD(
    list_syms,
    "--list-syms",
    "-s", // short opt
-   "",
+   "List all the (non-dynamic) symbols in the symbol table",
    0,
    &list_syms
 )

@@ -236,20 +236,12 @@ REGISTER_CMD(
 static int
 list_syms(struct elf_file_info *nfo)
 {
-   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *strtab;
    unsigned sym_count;
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
    if (!syms) {
       fprintf(stderr, "ERROR: ERROR: No symbol table\n");
-      return 1;
-   }
-
-   strtab = get_section_by_name(h, ".strtab");
-
-   if (!strtab) {
-      fprintf(stderr, "ERROR: no .strtab in the binary\n");
       return 1;
    }
 

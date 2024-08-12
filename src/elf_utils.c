@@ -195,6 +195,11 @@ get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
    const char *name = NULL;
 
+   if (!strtab) {
+      fprintf(stderr, "ERROR: no .strtab section!\n");
+      exit(1);
+   }
+
    if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
 
       Elf_Shdr *sec = sections + s->st_shndx;

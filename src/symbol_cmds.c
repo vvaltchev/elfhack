@@ -146,14 +146,22 @@ list_syms(struct elf_file_info *nfo)
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
 
    if (!syms) {
-      fprintf(stderr, "ERROR: ERROR: No symbol table\n");
+      fprintf(stderr, "ERROR: No symbol table\n");
       return 1;
    }
 
    for (unsigned i = 0; i < sym_count; i++) {
       Elf_Sym *s = syms + i;
       const char *s_name = get_symbol_name(h, s);
-      printf("%s\n", s_name);
+      printf("%5u %014llx %10llu %-10s %-10s %-10s %5u %s\n",
+             i,                                 /* index                 */
+             (unsigned long long)s->st_value,   /* offset within section */
+             (unsigned long long)s->st_size,    /* size                  */
+             sym_get_type_str(ELF_ST_TYPE(s->st_info)),
+             sym_get_bind_str(ELF_ST_BIND(s->st_info)),
+             sym_get_visibility_str(ELF_ST_VISIBILITY(s->st_other)),
+             s->st_shndx,
+             s_name);
    }
 
    return 0;
@@ -163,7 +171,7 @@ REGISTER_CMD(
    list_syms,
    "--list-syms",
    "-s", // short opt
-   "List all the (non-dynamic) symbols in the symbol table",
+   "List all the symbols in .symtab",
    0,
    &list_syms
 )

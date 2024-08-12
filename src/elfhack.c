@@ -56,31 +56,47 @@ void register_option(struct elfhack_option *cmd)
    }
 }
 
-int
-show_help(struct elf_file_info *nfo)
+static void
+dump_options(enum elfhack_option_type type)
 {
+   struct elfhack_option *c;
    char buf[256];
-   UNUSED_VARIABLE(nfo);
-   fprintf(stderr, "Usage:\n");
 
-   struct elfhack_option *c = options_head;
+   for (c = options_head; c != NULL; c = c->next) {
 
-   while (c) {
+      if (c->type != type)
+         continue;
 
       assert(c->long_opt);
 
       if (!c->short_opt) {
-         sprintf(buf, "    elfhack <file>     %s", c->long_opt);
+         sprintf(buf, "        %s", c->long_opt);
 
       } else {
-         sprintf(buf, "    elfhack <file> %-3s %s",
-                 c->short_opt, c->long_opt);
+         sprintf(buf, "    %-3s %s",
+               c->short_opt, c->long_opt);
       }
 
       fprintf(stderr, "%-50s %s\n", buf, c->help);
-      c = c->next;
    }
+}
 
+int
+show_help(struct elf_file_info *nfo)
+{
+   UNUSED_VARIABLE(nfo);
+   fprintf(stderr, "Usage:\n");
+   fprintf(stderr, "    elfhack <file> "
+                   "[--action [args...]]... [--modifier]...\n");
+
+   fprintf(stderr, "\n");
+   fprintf(stderr, "Actions:\n");
+   dump_options(ELFHACK_ACTION);
+
+   fprintf(stderr, "\n");
+   fprintf(stderr, "Modifiers:\n");
+   dump_options(ELFHACK_FLAG);
+   dump_options(ELFHACK_ENUM);
    return 0;
 }
 

@@ -126,7 +126,7 @@ get_section_by_name(Elf_Ehdr *h, const char *section_name)
 }
 
 int
-get_section_index(Elf_Ehdr *h, Elf_Shdr *sec)
+get_index_of_section(Elf_Ehdr *h, Elf_Shdr *sec)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    const ptrdiff_t index = sec - sections;
@@ -169,7 +169,7 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
 }
 
 int
-get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol)
+get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
 {
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
@@ -300,7 +300,7 @@ get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec)
    if (!syms)
       return NULL;
 
-   section_idx = get_section_index(h, sec);
+   section_idx = get_index_of_section(h, sec);
 
    if (section_idx < 0)
       return NULL;
@@ -367,7 +367,7 @@ remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
    if (rela_sec->sh_type != SHT_REL && rela_sec->sh_type != SHT_RELA)
       abort();
 
-   int sym_index = get_symbol_index(h, sym);
+   int sym_index = get_index_of_symbol(h, sym);
 
    if (sym_index < 0)
       abort();
@@ -444,8 +444,8 @@ redirect_rel_internal(Elf_Ehdr *h, Elf_Shdr *sec, Elf_Sym *s1, Elf_Sym *s2)
    if (sec->sh_type != SHT_REL && sec->sh_type != SHT_RELA)
       abort();
 
-   int index1 = get_symbol_index(h, s1);
-   int index2 = get_symbol_index(h, s2);
+   int index1 = get_index_of_symbol(h, s1);
+   int index2 = get_index_of_symbol(h, s2);
 
    if (index1 < 0 || index2 < 0) {
       abort();

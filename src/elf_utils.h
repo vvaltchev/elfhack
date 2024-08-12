@@ -29,7 +29,7 @@ Elf_Shdr *
 get_section_by_name(Elf_Ehdr *h, const char *section_name);
 
 int
-get_section_index(Elf_Ehdr *h, Elf_Shdr *sec);
+get_index_of_section(Elf_Ehdr *h, Elf_Shdr *sec);
 
 Elf_Shdr *
 get_section_by_index(Elf_Ehdr *h, unsigned index);
@@ -38,7 +38,7 @@ Elf_Sym *
 get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count);
 
 int
-get_symbol_index(Elf_Ehdr *h, Elf_Sym *symbol);
+get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol);
 
 Elf_Sym *
 get_symbol_by_index(Elf_Ehdr *h, unsigned index);

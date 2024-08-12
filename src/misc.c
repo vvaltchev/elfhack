@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
 
@@ -26,3 +28,9 @@ is_index_string(const char *str)
    return is_plain_integer(str + 1);
 }
 
+void
+die_with_invalid_index_error(const char *str)
+{
+   fprintf(stderr, "ERROR: invalid index '%s'\n", str);
+   exit(1);
+}

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "misc.h"
 #include "elf_utils.h"
@@ -100,7 +101,9 @@ sym_get_visibility_str(unsigned visibility)
 }
 
 Elf_Shdr *
-get_section_by_name(Elf_Ehdr *h, const char *section_name)
+get_section_by_name(Elf_Ehdr *h,
+                    const char *section_name,
+                    unsigned *out_index)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
@@ -114,9 +117,18 @@ get_section_by_name(Elf_Ehdr *h, const char *section_name)
       if (!strcmp(name, section_name)) {
 
          if (!result) {
+
             result = s;
+            if (out_index) {
+               *out_index = i;
+            }
+            assert(i == get_index_of_section(h, result));
+
          } else {
-            fprintf(stderr, "ERROR: multiple sections named '%s'\n", section_name);
+
+            fprintf(stderr,
+                    "ERROR: multiple sections named '%s'\n",
+                    section_name);
             exit(1);
          }
       }
@@ -125,7 +137,7 @@ get_section_by_name(Elf_Ehdr *h, const char *section_name)
    return result;
 }
 
-int
+unsigned
 get_index_of_section(Elf_Ehdr *h, Elf_Shdr *sec)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
@@ -136,7 +148,7 @@ get_index_of_section(Elf_Ehdr *h, Elf_Shdr *sec)
       exit(1);
    }
 
-   return (int)index;
+   return (unsigned)index;
 }
 
 Elf_Shdr *
@@ -157,7 +169,7 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
 {
    Elf_Shdr *symtab;
    Elf_Sym *syms;
-   symtab = get_section_by_name(h, ".symtab");
+   symtab = get_section_by_name(h, ".symtab", NULL);
 
    if (!symtab) {
       return NULL;
@@ -168,7 +180,7 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
    return syms;
 }
 
-int
+unsigned
 get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
 {
    unsigned sym_count;
@@ -184,14 +196,14 @@ get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
       exit(1);
    }
 
-   return (int)index;
+   return (unsigned)index;
 }
 
 const char *
 get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *strtab = get_section_by_name(h, ".strtab");
+   Elf_Shdr *strtab = get_section_by_name(h, ".strtab", NULL);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
    const char *name = NULL;
 
@@ -234,7 +246,9 @@ get_symbol_by_index(Elf_Ehdr *h, unsigned index)
 }
 
 Elf_Sym *
-get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index)
+get_symbol_by_name(Elf_Ehdr *h,
+                   const char *sym_name,
+                   unsigned *out_index)
 {
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
@@ -255,13 +269,13 @@ get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index)
          continue; // no match
 
       // the symbol name matches
-
       if (!result) {
 
-         if (index) {
-            *index = i;
-         }
          result = s;
+         if (out_index) {
+            *out_index = i;
+         }
+         assert(get_index_of_symbol(h, result) == i);
 
       } else {
          fprintf(stderr, "ERROR: multiple symbols named '%s'\n", sym_name);

@@ -6,3 +6,6 @@
 
 Elf_Sym *
 get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index);
+
+Elf_Shdr *
+get_section(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index);

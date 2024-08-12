@@ -35,13 +35,6 @@ REGISTER_ENUM_FLAG(
    symbol_name_format_enum_strings
 )
 
-static void
-die_with_invalid_index_error(const char *str)
-{
-   fprintf(stderr, "ERROR: invalid symbol index '%s'\n", str);
-   exit(1);
-}
-
 Elf_Sym *
 get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
 {
@@ -75,7 +68,7 @@ get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
 
       /*
        * The user passed a symbol index, let's just check that by accident
-       *  we don't have a symbol named exactly that way.
+       * we don't have a symbol named exactly that way.
        */
 
       unsigned index;
@@ -107,6 +100,7 @@ get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
    return get_symbol_by_name(h, name_or_index, out_index);
 }
 
+/* ------------------------------------------------------------------------- */
 
 static int
 set_sym_strval(struct elf_file_info *nfo,
@@ -124,7 +118,7 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   section = get_section_by_name(h, section_name);
+   section = get_section_by_name(h, section_name, NULL);
 
    if (!section) {
       fprintf(stderr, "No section '%s'\n", section_name);

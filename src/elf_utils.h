@@ -26,9 +26,9 @@ const char *
 sym_get_visibility_str(unsigned visibility);
 
 Elf_Shdr *
-get_section_by_name(Elf_Ehdr *h, const char *section_name);
+get_section_by_name(Elf_Ehdr *h, const char *name, unsigned *index);
 
-int
+unsigned
 get_index_of_section(Elf_Ehdr *h, Elf_Shdr *sec);
 
 Elf_Shdr *
@@ -37,7 +37,7 @@ get_section_by_index(Elf_Ehdr *h, unsigned index);
 Elf_Sym *
 get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count);
 
-int
+unsigned
 get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol);
 
 Elf_Sym *

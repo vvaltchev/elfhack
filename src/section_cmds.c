@@ -12,13 +12,105 @@
 #include "basic_defs.h"
 #include "elf_utils.h"
 #include "options.h"
+#include "utils.h"
+#include "misc.h"
 
+enum section_name_format {
+   section_format_default,
+   section_format_name,
+   section_format_index,
+};
+
+static const char *section_name_format_enum_strings[] =
+{
+   "default",
+   "name",
+   "index",
+   NULL,
+};
+
+REGISTER_ENUM_FLAG(
+   section_input_format,
+   "--set-section-input-format",
+   "-Sf",
+   "Set section format: {default, name, index}. "
+   "'default' is like 'name' but '#123' means index 123",
+   section_name_format_enum_strings
+)
+
+Elf_Shdr *
+get_section(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
+{
+   enum section_name_format format =
+      get_enum_option_val("section_input_format");
+
+   if (format == section_format_name)
+      return get_section_by_name(h, name_or_index, out_index);
+
+   if (format == section_format_index) {
+
+      unsigned index;
+
+      if (!is_plain_integer(name_or_index)) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      errno = 0;
+      index = strtoul(name_or_index, NULL, 10);
+
+      if (errno) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      return get_section_by_index(h, index);
+   }
+
+   assert(format == section_format_default);
+
+   if (is_index_string(name_or_index)) {
+
+      /*
+       * The user passed a section index, let's just check that by accident
+       * we don't have a section named exactly that way.
+       */
+
+      unsigned index;
+      Elf_Shdr *sec = get_section_by_name(h, name_or_index, &index);
+
+      if (sec) {
+         fprintf(stderr,
+                 "ERROR: cannot specify a section using the index string '%s' "
+                 "because section at index %u has actually that name.\n",
+                 name_or_index, index);
+         exit(1);
+      }
+
+      errno = 0;
+      index = strtoul(name_or_index + 1, NULL, 10);
+      if (errno) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      sec = get_section_by_index(h, index);
+
+      if (sec && out_index)
+         *out_index = index;
+
+      return sec;
+   }
+
+   // name_or_index is a regular name
+   return get_section_by_name(h, name_or_index, out_index);
+}
+
+
+/* ------------------------------------------------------------------------- */
 
 static int
 section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name);
+   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name, NULL);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -56,14 +148,14 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
       return 1;
    }
 
-   s_src = get_section_by_name(nfo->vaddr, src);
+   s_src = get_section_by_name(nfo->vaddr, src, NULL);
 
    if (!s_src) {
       fprintf(stderr, "No section '%s'\n", src);
       return 1;
    }
 
-   s_dst = get_section_by_name(nfo->vaddr, dst);
+   s_dst = get_section_by_name(nfo->vaddr, dst, NULL);
 
    if (!s_dst) {
       fprintf(stderr, "No section '%s'\n", dst);
@@ -121,7 +213,7 @@ rename_section(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name);
+   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name, NULL);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -157,8 +249,8 @@ link_sections(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *a = get_section_by_name(nfo->vaddr, section_name);
-   Elf_Shdr *b = get_section_by_name(nfo->vaddr, linked);
+   Elf_Shdr *a = get_section_by_name(nfo->vaddr, section_name, NULL);
+   Elf_Shdr *b = get_section_by_name(nfo->vaddr, linked, NULL);
 
    if (!a) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -190,7 +282,7 @@ static int
 undef_section(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *sec = get_section_by_name(h, section_name);
+   Elf_Shdr *sec = get_section_by_name(h, section_name, NULL);
 
    if (!sec) {
       fprintf(stderr, "Section '%s' not found\n", section_name);

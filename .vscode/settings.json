@@ -41,6 +41,7 @@
       "string_view": "c",
       "typeinfo": "cpp",
       "stdlib.h": "c",
-      "errno.h": "c"
+      "errno.h": "c",
+      "basic_defs.h": "c"
    }
 }

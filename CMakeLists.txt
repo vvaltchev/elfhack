@@ -17,6 +17,7 @@ list(APPEND
    "src/segment_cmds.c"
    "src/misc_cmds.c"
    "src/relocs_cmds.c"
+   "src/utils.c"
    "src/misc.c"
 )
 

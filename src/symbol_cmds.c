@@ -112,7 +112,7 @@ REGISTER_CMD(
 /* ------------------------------------------------------------------------- */
 
 static int
-get_sym(struct elf_file_info *nfo, const char *name_or_index)
+get_sym_value(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
@@ -127,12 +127,12 @@ get_sym(struct elf_file_info *nfo, const char *name_or_index)
 }
 
 REGISTER_CMD(
-   get_sym,
-   "--get-sym",
+   get_sym_value,
+   "--get-sym-value",
    "-v", // short opt
    "<symbol>",
    1,
-   &get_sym
+   &get_sym_value
 )
 
 /* ------------------------------------------------------------------------- */

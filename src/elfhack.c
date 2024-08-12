@@ -77,7 +77,7 @@ dump_options(enum elfhack_option_type type)
                c->short_opt, c->long_opt);
       }
 
-      fprintf(stderr, "%-50s %s\n", buf, c->help);
+      fprintf(stderr, "%-35s %s\n", buf, c->help);
    }
 }
 

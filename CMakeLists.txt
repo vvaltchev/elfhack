@@ -23,3 +23,5 @@ list(APPEND
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)
 add_executable(elfhack ${SOURCES})
+
+target_include_directories(elfhack PUBLIC include)

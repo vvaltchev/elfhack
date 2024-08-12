@@ -19,9 +19,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
 
 typedef int (*cmd_func_0)(struct elf_file_info *);
 

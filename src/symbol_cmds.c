@@ -7,11 +7,11 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
-#include "misc.h"
-#include "utils.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
+#include "elfhack/misc.h"
+#include "elfhack/utils.h"
 
 static int
 set_sym_strval(struct elf_file_info *nfo,

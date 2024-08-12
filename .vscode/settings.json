@@ -42,6 +42,7 @@
       "typeinfo": "cpp",
       "stdlib.h": "c",
       "errno.h": "c",
-      "basic_defs.h": "c"
+      "basic_defs.h": "c",
+      "fcntl.h": "c"
    }
 }

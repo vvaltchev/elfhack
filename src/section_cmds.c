@@ -9,11 +9,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
-#include "utils.h"
-#include "misc.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
+#include "elfhack/utils.h"
+#include "elfhack/misc.h"
 
 static int
 section_bin_dump(struct elf_file_info *nfo, const char *section_name)

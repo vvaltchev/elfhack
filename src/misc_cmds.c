@@ -7,9 +7,9 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
 
 
 static int

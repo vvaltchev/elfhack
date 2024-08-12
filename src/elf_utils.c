@@ -6,8 +6,8 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "misc.h"
-#include "elf_utils.h"
+#include "elfhack/misc.h"
+#include "elfhack/elf_utils.h"
 
 const char *
 sym_get_bind_str(unsigned bind)

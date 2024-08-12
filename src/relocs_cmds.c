@@ -7,10 +7,10 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
-#include "utils.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
+#include "elfhack/utils.h"
 
 static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)

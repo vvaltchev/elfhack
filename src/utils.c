@@ -9,12 +9,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "basic_defs.h"
-#include "elf_utils.h"
-#include "options.h"
-#include "utils.h"
-#include "misc.h"
-#include "utils.h"
+#include "elfhack/basic_defs.h"
+#include "elfhack/elf_utils.h"
+#include "elfhack/options.h"
+#include "elfhack/utils.h"
+#include "elfhack/misc.h"
+#include "elfhack/utils.h"
 
 enum symbol_name_format {
    symbol_format_default,

@@ -6,6 +6,7 @@
 enum elfhack_option_type {
    ELFHACK_ACTION,
    ELFHACK_FLAG,
+   ELFHACK_ENUM,
 };
 
 struct elfhack_option {
@@ -28,12 +29,19 @@ struct elfhack_option {
 
       /* type == ELFHACK_FLAG */
       bool boolean_value;       /* always `false` as default. */
+
+      /* type == ELFHACK_ENUM */
+      struct {
+         int enum_value;
+         const char **enum_choices; /* NULL-terminated */
+      };
    };
 };
 
 void register_option(struct elfhack_option *opt);
 struct elfhack_option *find_option_by_name(const char *name);
 bool get_boolean_option_val(const char *name);
+int get_enum_option_val(const char *name);
 
 #define REGISTER_CMD(n, opt1, opt2, help_str, nargs_val, handler)    \
    static struct elfhack_option __cmd_##n = {                        \
@@ -44,7 +52,7 @@ bool get_boolean_option_val(const char *name);
       .short_opt = opt2,                                             \
       .help = help_str,                                              \
       .nargs = nargs_val,                                            \
-      .func = handler                                                \
+      .func = handler,                                               \
    };                                                                \
    static void __attribute__((constructor))                          \
    __register_cmd_##n(void) {                                        \
@@ -58,9 +66,24 @@ bool get_boolean_option_val(const char *name);
       .name = #n,                                                    \
       .long_opt = opt1,                                              \
       .short_opt = opt2,                                             \
-      .help = help_str                                               \
+      .help = help_str,                                              \
    };                                                                \
    static void __attribute__((constructor))                          \
    __register_flag_##n(void) {                                       \
       register_option(&__flag_##n);                                  \
+   }
+
+#define REGISTER_ENUM_FLAG(n, opt1, opt2, help_str, choices)         \
+   static struct elfhack_option __enum_##n = {                       \
+      .next = NULL,                                                  \
+      .type = ELFHACK_ENUM,                                          \
+      .name = #n,                                                    \
+      .long_opt = opt1,                                              \
+      .short_opt = opt2,                                             \
+      .help = help_str,                                              \
+      .enum_choices = choices,                                       \
+   };                                                                \
+   static void __attribute__((constructor))                          \
+   __register_enum_##n(void) {                                       \
+      register_option(&__enum_##n);                                  \
    }

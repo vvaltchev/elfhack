@@ -5,3 +5,6 @@
 
 bool
 is_index_string(const char *str);
+
+bool
+is_plain_integer(const char *str);

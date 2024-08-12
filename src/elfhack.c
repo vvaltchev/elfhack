@@ -182,6 +182,18 @@ get_boolean_option_val(const char *name)
 }
 
 int
+get_enum_option_val(const char *name)
+{
+   struct elfhack_option *opt = find_option_by_name(name);
+
+   if (opt) {
+      return opt->enum_value;
+   }
+
+   return 0;
+}
+
+int
 process_option_type_action(struct elf_file_info *nfo,
                            struct elfhack_option *opt,
                            int *argc,
@@ -237,6 +249,49 @@ process_option_type_flag(struct elf_file_info *nfo,
 }
 
 int
+process_option_type_enum(struct elf_file_info *nfo,
+                         struct elfhack_option *opt,
+                         int *argc,
+                         char **argv)
+{
+   UNUSED_VARIABLE(nfo);
+   int choice = -1;
+
+   for (int i = 0; opt->enum_choices[i]; i++) {
+      if (!strcmp(argv[0], opt->enum_choices[i])) {
+         choice = i;
+         break;
+      }
+   }
+
+   if (choice < 0) {
+      fprintf(stderr,
+              "ERROR: invalid choice '%s' for enum option '%s'\n",
+              argv[0], opt->long_opt);
+      return 1;
+   }
+
+   opt->enum_value = choice;
+   *argc -= 1;
+   return 0;
+}
+
+int
+get_nargs_for_option_type(struct elfhack_option *opt)
+{
+   switch (opt->type) {
+      case ELFHACK_ACTION:
+         return opt->nargs;
+      case ELFHACK_FLAG:
+         return 0;
+      case ELFHACK_ENUM:
+         return 1;
+      default:
+         abort(); /* unknown type */
+   }
+}
+
+int
 process_all_options(struct elf_file_info *nfo,
                     int argc,
                     char **argv)
@@ -259,16 +314,7 @@ process_all_options(struct elf_file_info *nfo,
          return 1;
       }
 
-      switch (opt->type) {
-         case ELFHACK_ACTION:
-            nargs = opt->nargs;
-            break;
-         case ELFHACK_FLAG:
-            nargs = 0;
-            break;
-         default:
-            abort(); /* unknown type */
-      }
+      nargs = get_nargs_for_option_type(opt);
 
       if (argc < nargs) {
          fprintf(stderr,
@@ -284,6 +330,9 @@ process_all_options(struct elf_file_info *nfo,
             break;
          case ELFHACK_FLAG:
             rc = process_option_type_flag(nfo, opt, &argc_new, argv);
+            break;
+         case ELFHACK_ENUM:
+            rc = process_option_type_enum(nfo, opt, &argc_new, argv);
             break;
          default:
             abort(); /* unknown type */

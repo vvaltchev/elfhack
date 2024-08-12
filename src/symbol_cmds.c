@@ -10,12 +10,108 @@
 #include "basic_defs.h"
 #include "elf_utils.h"
 #include "options.h"
+#include "misc.h"
+
+enum symbol_name_format {
+   symbol_format_default,
+   symbol_format_name,
+   symbol_format_index,
+};
+
+static const char *symbol_name_format_enum_strings[] =
+{
+   "default",
+   "name",
+   "index",
+   NULL,
+};
+
+REGISTER_ENUM_FLAG(
+   symbol_input_format,
+   "--set-symbol-input-format",
+   "-sf",
+   "Set symbol format: {default, name, index}. "
+   "'default' is like 'name' but '#123' means index 123",
+   symbol_name_format_enum_strings
+)
+
+static void
+die_with_invalid_index_error(const char *str)
+{
+   fprintf(stderr, "ERROR: invalid symbol index '%s'\n", str);
+   exit(1);
+}
+
+Elf_Sym *
+get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
+{
+   enum symbol_name_format format =
+      get_enum_option_val("symbol_input_format");
+
+   if (format == symbol_format_name)
+      return get_symbol_by_name(h, name_or_index, out_index);
+
+   if (format == symbol_format_index) {
+
+      unsigned index;
+
+      if (!is_plain_integer(name_or_index)) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      errno = 0;
+      index = strtoul(name_or_index, NULL, 10);
+
+      if (errno) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      return get_symbol_by_index(h, index);
+   }
+
+   assert(format == symbol_format_default);
+
+   if (is_index_string(name_or_index)) {
+
+      /*
+       * The user passed a symbol index, let's just check that by accident
+       *  we don't have a symbol named exactly that way.
+       */
+
+      unsigned index;
+      Elf_Sym *sym = get_symbol_by_name(h, name_or_index, &index);
+
+      if (sym) {
+         fprintf(stderr,
+                 "ERROR: cannot specify a symbol using the index string '%s' "
+                 "because symbol at index %u has actually that name.\n",
+                 name_or_index, index);
+         exit(1);
+      }
+
+      errno = 0;
+      index = strtoul(name_or_index + 1, NULL, 10);
+      if (errno) {
+         die_with_invalid_index_error(name_or_index);
+      }
+
+      sym = get_symbol_by_index(h, index);
+
+      if (sym && out_index)
+         *out_index = index;
+
+      return sym;
+   }
+
+   // name_or_index is a regular name
+   return get_symbol_by_name(h, name_or_index, out_index);
+}
 
 
 static int
 set_sym_strval(struct elf_file_info *nfo,
                const char *section_name,
-               const char *sym_name,
+               const char *name_or_index,
                const char *val)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -23,7 +119,7 @@ set_sym_strval(struct elf_file_info *nfo,
    Elf_Sym *sym;
    size_t len;
 
-   if (!sym_name || !val) {
+   if (!name_or_index || !val) {
       fprintf(stderr, "Missing arguments\n");
       return 1;
    }
@@ -35,10 +131,10 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   sym = get_symbol(h, sym_name, NULL);
+   sym = get_symbol(h, name_or_index, NULL);
 
    if (!sym) {
-      fprintf(stderr, "Unable to find the symbol '%s'\n", sym_name);
+      fprintf(stderr, "Unable to find the symbol '%s'\n", name_or_index);
       return 1;
    }
 
@@ -46,7 +142,7 @@ set_sym_strval(struct elf_file_info *nfo,
        sym->st_value + sym->st_size > section->sh_addr + section->sh_size)
    {
       fprintf(stderr,
-              "Symbol '%s' not in section '%s'\n", sym_name, section_name);
+              "Symbol '%s' not in section '%s'\n", name_or_index, section_name);
 
       return 1;
    }
@@ -55,7 +151,7 @@ set_sym_strval(struct elf_file_info *nfo,
 
    if (sym->st_size < len) {
       fprintf(stderr, "ERROR: Symbol '%s' [%u bytes] not big enough for value\n",
-              sym_name, (unsigned)sym->st_size);
+              name_or_index, (unsigned)sym->st_size);
       return 1;
    }
 
@@ -77,14 +173,14 @@ REGISTER_CMD(
 /* ------------------------------------------------------------------------- */
 
 static int
-dump_sym(struct elf_file_info *nfo, const char *sym_name)
+dump_sym(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
@@ -111,13 +207,13 @@ REGISTER_CMD(
 /* ------------------------------------------------------------------------- */
 
 static int
-get_sym(struct elf_file_info *nfo, const char *sym_name)
+get_sym(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
@@ -178,15 +274,15 @@ REGISTER_CMD(
 /* ------------------------------------------------------------------------- */
 
 static int
-get_sym_info(struct elf_file_info *nfo, const char *sym_name)
+get_sym_info(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
@@ -229,17 +325,17 @@ REGISTER_CMD(
 
 static int
 set_sym_bind(struct elf_file_info *nfo,
-             const char *sym_name,
+             const char *name_or_index,
              const char *bind_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
    const char *exp_end = bind_str + strlen(bind_str);
    char *endptr = NULL;
    unsigned long bind_n;
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
@@ -274,17 +370,17 @@ REGISTER_CMD(
 
 static int
 set_sym_type(struct elf_file_info *nfo,
-             const char *sym_name,
+             const char *name_or_index,
              const char *type_str)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Sym *sym = get_symbol(h, sym_name, NULL);
+   Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
    const char *exp_end = type_str + strlen(type_str);
    char *endptr = NULL;
    unsigned long type_n;
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
@@ -317,7 +413,8 @@ REGISTER_CMD(
 /* ------------------------------------------------------------------------- */
 
 static int
-undef_sym(struct elf_file_info *nfo, const char *sym_name)
+undef_sym(struct elf_file_info *nfo,
+          const char *name_or_index)
 {
    unsigned sym_count, index;
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
@@ -328,10 +425,10 @@ undef_sym(struct elf_file_info *nfo, const char *sym_name)
       return 1;
    }
 
-   Elf_Sym *sym = get_symbol(h, sym_name, &index);
+   Elf_Sym *sym = get_symbol(h, name_or_index, &index);
 
    if (!sym) {
-      fprintf(stderr, "ERROR: Symbol '%s' not found\n", sym_name);
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 

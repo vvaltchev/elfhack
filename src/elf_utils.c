@@ -267,45 +267,6 @@ get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index)
    return result;
 }
 
-Elf_Sym *
-get_symbol(Elf_Ehdr *h, const char *name_or_index, unsigned *out_index)
-{
-   if (is_index_string(name_or_index)) {
-
-      /*
-       * The user passed a symbol index, let's just check that by accident we don't
-       * have a symbol named exactly that way.
-       */
-
-      unsigned index;
-      Elf_Sym *sym = get_symbol_by_name(h, name_or_index, &index);
-
-      if (sym) {
-         fprintf(stderr,
-                 "ERROR: cannot specify a symbol using the index string '%s' "
-                 "because symbol at index %u has actually that name.\n",
-                 name_or_index, index);
-         exit(1);
-      }
-
-      errno = 0;
-      index = strtoul(name_or_index + 1, NULL, 10);
-      if (errno) {
-         fprintf(stderr, "ERROR: invalid symbol index '%s'\n", name_or_index);
-         exit(1);
-      }
-
-      sym = get_symbol_by_index(h, index);
-
-      if (sym && out_index)
-         *out_index = index;
-
-      return sym;
-   }
-
-   // name_or_index is a regular name
-   return get_symbol_by_name(h, name_or_index, out_index);
-}
 
 size_t
 elf_calc_mem_size(Elf_Ehdr *h)

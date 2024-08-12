@@ -4,22 +4,25 @@
 #include <stdbool.h>
 
 bool
-is_index_string(const char *str)
+is_plain_integer(const char *str)
 {
-   const char *digits;
-
-   if (*str != '#')
-      return false;
-
-   digits = str + 1;
-
-   if (!isdigit(*digits))
-      return false; /* not even a single digit after '#' */
-
-   for (const char *p = digits; *p != '\0'; p++) {
+   for (const char *p = str; *p != '\0'; p++) {
       if (!isdigit(*p))
          return false;
    }
 
    return true;
 }
+
+bool
+is_index_string(const char *str)
+{
+   if (*str != '#')
+      return false;
+
+   if (!isdigit(*(str + 1)))
+      return false; /* not even a single digit after '#' */
+
+   return is_plain_integer(str + 1);
+}
+

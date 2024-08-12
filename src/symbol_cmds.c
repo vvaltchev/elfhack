@@ -29,7 +29,7 @@ set_sym_strval(struct elf_file_info *nfo,
       return 1;
    }
 
-   section = get_section_by_name(h, section_name, NULL);
+   section = get_section(h, section_name, NULL);
 
    if (!section) {
       fprintf(stderr, "No section '%s'\n", section_name);

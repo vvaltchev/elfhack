@@ -19,7 +19,7 @@ static int
 section_bin_dump(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name, NULL);
+   Elf_Shdr *s = get_section(nfo->vaddr, section_name, NULL);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -57,14 +57,14 @@ copy_section(struct elf_file_info *nfo, const char *src, const char *dst)
       return 1;
    }
 
-   s_src = get_section_by_name(nfo->vaddr, src, NULL);
+   s_src = get_section(nfo->vaddr, src, NULL);
 
    if (!s_src) {
       fprintf(stderr, "No section '%s'\n", src);
       return 1;
    }
 
-   s_dst = get_section_by_name(nfo->vaddr, dst, NULL);
+   s_dst = get_section(nfo->vaddr, dst, NULL);
 
    if (!s_dst) {
       fprintf(stderr, "No section '%s'\n", dst);
@@ -122,7 +122,7 @@ rename_section(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *s = get_section_by_name(nfo->vaddr, section_name, NULL);
+   Elf_Shdr *s = get_section(nfo->vaddr, section_name, NULL);
 
    if (!s) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -158,8 +158,8 @@ link_sections(struct elf_file_info *nfo,
       return 1;
    }
 
-   Elf_Shdr *a = get_section_by_name(nfo->vaddr, section_name, NULL);
-   Elf_Shdr *b = get_section_by_name(nfo->vaddr, linked, NULL);
+   Elf_Shdr *a = get_section(nfo->vaddr, section_name, NULL);
+   Elf_Shdr *b = get_section(nfo->vaddr, linked, NULL);
 
    if (!a) {
       fprintf(stderr, "No section '%s'\n", section_name);
@@ -191,7 +191,7 @@ static int
 undef_section(struct elf_file_info *nfo, const char *section_name)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *sec = get_section_by_name(h, section_name, NULL);
+   Elf_Shdr *sec = get_section(h, section_name, NULL);
 
    if (!sec) {
       fprintf(stderr, "Section '%s' not found\n", section_name);

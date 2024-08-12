@@ -21,7 +21,7 @@
 
 #include "basic_defs.h"
 #include "elf_utils.h"
-#include "cmds.h"
+#include "options.h"
 
 typedef int (*cmd_func_0)(struct elf_file_info *);
 

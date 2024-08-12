@@ -11,7 +11,7 @@
 
 #include "basic_defs.h"
 #include "elf_utils.h"
-#include "cmds.h"
+#include "options.h"
 
 
 static int

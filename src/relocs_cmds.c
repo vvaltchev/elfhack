@@ -9,7 +9,7 @@
 
 #include "basic_defs.h"
 #include "elf_utils.h"
-#include "cmds.h"
+#include "options.h"
 
 static int
 redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)

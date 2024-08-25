@@ -16,6 +16,9 @@ struct elf_file_info {
    int fd;
 };
 
+int
+elf_header_type_check(struct elf_file_info *nfo);
+
 const char *
 sym_get_bind_str(unsigned bind);
 

@@ -34,6 +34,7 @@ REGISTER_ENUM_FLAG(
    symbol_input_format,
    "--set-symbol-input-format",
    "-sf",
+   false, /* is_const */
    "Set symbol format: {default, name, index}. "
    "'default' is like 'name' but '#123' means index 123",
    symbol_name_format_enum_strings
@@ -124,6 +125,7 @@ REGISTER_ENUM_FLAG(
    section_input_format,
    "--set-section-input-format",
    "-Sf",
+   false, /* is_const */
    "Set section format: {default, name, index}. "
    "'default' is like 'name' but '#123' means index 123",
    section_name_format_enum_strings

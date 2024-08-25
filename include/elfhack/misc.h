@@ -11,3 +11,6 @@ is_plain_integer(const char *str);
 
 void
 die_with_invalid_index_error(const char *str);
+
+int
+file_copy(const char *src, const char *dest);

@@ -22,6 +22,7 @@
 #include "elfhack/basic_defs.h"
 #include "elfhack/elf_utils.h"
 #include "elfhack/options.h"
+#include "elfhack/misc.h"
 
 typedef int (*cmd_func_0)(struct elf_file_info *);
 
@@ -40,21 +41,6 @@ typedef int (*cmd_func_3)(struct elf_file_info *,
 
 struct elfhack_option *options_head;
 struct elfhack_option *options_tail;
-
-void register_option(struct elfhack_option *cmd)
-{
-   if (!options_tail) {
-
-      assert(!options_head);
-      options_head = cmd;
-      options_tail = cmd;
-
-   } else {
-
-      options_tail->next = cmd;
-      options_tail = cmd;
-   }
-}
 
 static void
 dump_options(enum elfhack_option_type type)
@@ -110,39 +96,6 @@ REGISTER_CMD(
 )
 
 
-
-int
-elf_header_type_check(struct elf_file_info *nfo)
-{
-   Elf32_Ehdr *h = nfo->vaddr;
-
-   if (h->e_ident[EI_MAG0] != ELFMAG0 ||
-       h->e_ident[EI_MAG1] != ELFMAG1 ||
-       h->e_ident[EI_MAG2] != ELFMAG2 ||
-       h->e_ident[EI_MAG3] != ELFMAG3)
-   {
-      fprintf(stderr, "Not a valid ELF binary (magic doesn't match)\n");
-      return 1;
-   }
-
-   if (sizeof(Elf_Addr) == 4) {
-
-      if (h->e_ident[EI_CLASS] != ELFCLASS32) {
-         fprintf(stderr, "ERROR: expected 32-bit binary\n");
-         return 1;
-      }
-
-   } else {
-
-      if (h->e_ident[EI_CLASS] != ELFCLASS64) {
-         fprintf(stderr, "ERROR: expected 64-bit binary\n");
-         return 1;
-      }
-   }
-
-   return 0;
-}
-
 struct elfhack_option *
 find_option_by_cmdline_string(const char *opt_string)
 {
@@ -176,8 +129,9 @@ find_option_by_name(const char *name)
 
    while (opt) {
 
-      if (!strcmp(opt->name, name))
+      if (!strcmp(opt->name, name)) {
          return opt;
+      }
 
       opt = opt->next;
    }
@@ -209,30 +163,45 @@ get_enum_option_val(const char *name)
    return 0;
 }
 
+const char *
+get_string_option_val(const char *name)
+{
+   struct elfhack_option *opt = find_option_by_name(name);
+
+   if (opt) {
+      return opt->string_value;
+   }
+
+   return NULL;
+}
+
 int
 process_option_type_action(struct elf_file_info *nfo,
                            struct elfhack_option *opt,
+                           bool const_processing,
                            int *argc,
                            char **argv)
 {
-   int rc;
+   int rc = 0;
    assert(opt->type == ELFHACK_ACTION);
 
-   switch (opt->nargs) {
-      case 0:
-         rc = ((cmd_func_0)opt->func)(nfo);
-         break;
-      case 1:
-         rc = ((cmd_func_1)opt->func)(nfo, argv[0]);
-         break;
-      case 2:
-         rc = ((cmd_func_2)opt->func)(nfo, argv[0], argv[1]);
-         break;
-      case 3:
-         rc = ((cmd_func_3)opt->func)(nfo, argv[0], argv[1], argv[2]);
-         break;
-      default:
-         abort();
+   if (!const_processing) {
+      switch (opt->nargs) {
+         case 0:
+            rc = ((cmd_func_0)opt->func)(nfo);
+            break;
+         case 1:
+            rc = ((cmd_func_1)opt->func)(nfo, argv[0]);
+            break;
+         case 2:
+            rc = ((cmd_func_2)opt->func)(nfo, argv[0], argv[1]);
+            break;
+         case 3:
+            rc = ((cmd_func_3)opt->func)(nfo, argv[0], argv[1], argv[2]);
+            break;
+         default:
+            abort();
+      }
    }
 
    *argc -= opt->nargs;
@@ -242,6 +211,7 @@ process_option_type_action(struct elf_file_info *nfo,
 int
 process_option_type_flag(struct elf_file_info *nfo,
                          struct elfhack_option *opt,
+                         bool const_processing,
                          int *argc,
                          char **argv)
 {
@@ -251,22 +221,35 @@ process_option_type_flag(struct elf_file_info *nfo,
    assert(opt->type == ELFHACK_FLAG);
 
    if (*argc > 0 && !strcmp(argv[0], "false")) {
-      opt->boolean_value = false;
+
+      if (!const_processing || opt->is_const)
+         opt->boolean_value = false;
+
       (*argc)--;
+
    } else if (*argc > 0 && !strcmp(argv[0], "true")) {
-      opt->boolean_value = true;
+
+      if (!const_processing || opt->is_const)
+         opt->boolean_value = true;
+
       (*argc)--;
+
    } else {
-      /* No extra param, assume implict true */
-      opt->boolean_value = true;
+
+      if (!const_processing || opt->is_const) {
+         /* No extra param, assume implict true */
+         opt->boolean_value = true;
+      }
    }
 
+   opt->set_once = true;
    return 0;
 }
 
 int
 process_option_type_enum(struct elf_file_info *nfo,
                          struct elfhack_option *opt,
+                         bool const_processing,
                          int *argc,
                          char **argv)
 {
@@ -287,10 +270,70 @@ process_option_type_enum(struct elf_file_info *nfo,
       return 1;
    }
 
-   opt->enum_value = choice;
+   if (!const_processing || opt->is_const) {
+      opt->enum_value = choice;
+      opt->set_once = true;
+   }
+
    *argc -= 1;
    return 0;
 }
+
+int
+process_option_type_string(struct elf_file_info *nfo,
+                           struct elfhack_option *opt,
+                           bool const_processing,
+                           int *argc,
+                           char **argv)
+{
+   UNUSED_VARIABLE(nfo);
+
+   if (!const_processing || opt->is_const) {
+      opt->string_value = argv[0];
+      opt->set_once = true;
+   }
+
+   *argc -= 1;
+   return 0;
+}
+
+void register_option(struct elfhack_option *opt)
+{
+   if (!options_tail) {
+
+      assert(!options_head);
+      options_head = opt;
+      options_tail = opt;
+
+   } else {
+
+      options_tail->next = opt;
+      options_tail = opt;
+   }
+
+   switch (opt->type) {
+
+      case ELFHACK_ACTION:
+         opt->proc = &process_option_type_action;
+         break;
+
+      case ELFHACK_FLAG:
+         opt->proc = &process_option_type_flag;
+         break;
+
+      case ELFHACK_ENUM:
+         opt->proc = &process_option_type_enum;
+         break;
+
+      case ELFHACK_STRING:
+         opt->proc = &process_option_type_string;
+         break;
+
+      default:
+         abort();
+   }
+}
+
 
 int
 get_nargs_for_option_type(struct elfhack_option *opt)
@@ -301,16 +344,26 @@ get_nargs_for_option_type(struct elfhack_option *opt)
       case ELFHACK_FLAG:
          return 0;
       case ELFHACK_ENUM:
+      case ELFHACK_STRING:
          return 1;
       default:
          abort(); /* unknown type */
    }
 }
 
+REGISTER_STRING_FLAG(
+   output,
+   "--output",
+   "-o",
+   true, /* is_const */
+   "<output file>: without this, <file> will be modified in place"
+)
+
 int
 process_all_options(struct elf_file_info *nfo,
                     int argc,
-                    char **argv)
+                    char **argv,
+                    bool const_processing)
 {
    struct elfhack_option *opt = NULL;
    const char *opt_string;
@@ -339,20 +392,15 @@ process_all_options(struct elf_file_info *nfo,
          return 1;
       }
 
-      argc_new = argc;
-      switch (opt->type) {
-         case ELFHACK_ACTION:
-            rc = process_option_type_action(nfo, opt, &argc_new, argv);
-            break;
-         case ELFHACK_FLAG:
-            rc = process_option_type_flag(nfo, opt, &argc_new, argv);
-            break;
-         case ELFHACK_ENUM:
-            rc = process_option_type_enum(nfo, opt, &argc_new, argv);
-            break;
-         default:
-            abort(); /* unknown type */
+      if (const_processing && opt->is_const && opt->set_once) {
+         fprintf(stderr,
+                 "Error: const option %s set more than once\n",
+                 opt->name);
+         return 1;
       }
+
+      argc_new = argc;
+      opt->proc(nfo, opt, const_processing, &argc_new, argv);
 
       if (rc) {
          /* We got an error, stop processing. */
@@ -409,6 +457,8 @@ main(int argc, char **argv)
    struct elf_file_info nfo = {0};
    struct stat statbuf;
    size_t page_size;
+   const char *dest_file;
+   const char *elf_file;
    int rc;
 
    validate_tool_options();
@@ -418,7 +468,22 @@ main(int argc, char **argv)
       return 1;
    }
 
-   nfo.path = argv[1];
+   rc = process_all_options(NULL, argc - 2, argv + 2, true);
+   if (rc) {
+      return 1;
+   }
+
+   elf_file = argv[1];
+   dest_file = get_string_option_val("output");
+
+   if (dest_file) {
+      if (file_copy(elf_file, dest_file)) {
+         return 1;
+      }
+      elf_file = dest_file;
+   }
+
+   nfo.path = elf_file;
    nfo.fd = open(nfo.path, O_RDWR);
 
    if (nfo.fd < 0) {
@@ -460,7 +525,7 @@ main(int argc, char **argv)
       goto end;
    }
 
-   rc = process_all_options(&nfo, argc - 2, argv + 2);
+   rc = process_all_options(&nfo, argc - 2, argv + 2, false);
 
 end:
    if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {

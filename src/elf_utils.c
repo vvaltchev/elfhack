@@ -9,6 +9,38 @@
 #include "elfhack/misc.h"
 #include "elfhack/elf_utils.h"
 
+int
+elf_header_type_check(struct elf_file_info *nfo)
+{
+   Elf32_Ehdr *h = nfo->vaddr;
+
+   if (h->e_ident[EI_MAG0] != ELFMAG0 ||
+       h->e_ident[EI_MAG1] != ELFMAG1 ||
+       h->e_ident[EI_MAG2] != ELFMAG2 ||
+       h->e_ident[EI_MAG3] != ELFMAG3)
+   {
+      fprintf(stderr, "Not a valid ELF binary (magic doesn't match)\n");
+      return 1;
+   }
+
+   if (sizeof(Elf_Addr) == 4) {
+
+      if (h->e_ident[EI_CLASS] != ELFCLASS32) {
+         fprintf(stderr, "ERROR: expected 32-bit binary\n");
+         return 1;
+      }
+
+   } else {
+
+      if (h->e_ident[EI_CLASS] != ELFCLASS64) {
+         fprintf(stderr, "ERROR: expected 64-bit binary\n");
+         return 1;
+      }
+   }
+
+   return 0;
+}
+
 const char *
 sym_get_bind_str(unsigned bind)
 {

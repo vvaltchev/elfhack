@@ -214,6 +214,8 @@ class TestSymbols(ElfhackTestCase):
 
             self.assert_fails(self.run_tool(bits, f, '--list-syms'),
                               'No symbol table')
+            self.assert_fails(self.run_tool(bits, f, '--list-section-syms',
+                                            '.text'), 'No symbol table')
             self.assert_fails(self.run_tool(bits, f, '--get-sym-value',
                                             'caller'), 'not found')
 
@@ -342,3 +344,80 @@ class TestSymbols(ElfhackTestCase):
                   [r._replace(sym=swap.get(r.sym, r.sym)) for r in before]
                )
                self.assertEqual(elf.section_data(dynamic), dyn_before)
+
+   # --list-section-syms and --get-section-sym-value: the symbols defined in
+   # a given section (st_shndx), by name. A section symbol (STT_SECTION) is
+   # named after its section.
+
+   def names_in_section(self, elf, section):
+      index = elf.section(section).index
+      return [
+         elf.sections[s.shndx].name if s.info & 0xf == STT_SECTION else s.name
+         for s in elf.symbols() if s.shndx == index
+      ]
+
+   def test_list_section_syms(self):
+      for bits in ELF_CLASSES:
+         for fixture, sections in (
+            (f'obj{bits}.o', ('.text', '.data', '.bss', '.comment')),
+            (f'prog{bits}', ('.text', '.data')),
+            (f'dyn{bits}', ('.text', '.bss')),
+         ):
+            for section in sections:
+               with self.subTest(file=fixture, section=section):
+                  f = self.fixture(fixture)
+                  expected = self.names_in_section(self.elf(f), section)
+                  r = self.run_tool(bits, f, '--list-section-syms', section)
+                  self.assert_ok(r)
+                  self.assertEqual(r.stdout.decode().splitlines(), expected)
+
+   def test_list_section_syms_by_section_index(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+            f = self.fixture(f'obj{bits}.o')
+            elf = self.elf(f)
+            index = elf.section('.data').index
+            r = self.run_tool(bits, f, '-Sf', 'index',
+                              '--list-section-syms', str(index))
+            self.assert_ok(r)
+            self.assertEqual(r.stdout.decode().splitlines(),
+                             self.names_in_section(elf, '.data'))
+
+   def test_list_section_syms_of_a_missing_section(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+            f = self.fixture(f'obj{bits}.o')
+            r = self.run_tool(bits, f, '--list-section-syms', '.nothing')
+            self.assert_fails(r, "No section '.nothing'")
+            self.assertEqual(r.stdout, b'')
+
+   def test_get_section_sym_value(self):
+      for bits in ELF_CLASSES:
+         for fixture, section, sym in ((f'obj{bits}.o', '.text', 'caller'),
+                                       (f'obj{bits}.o', '.data', 'counter'),
+                                       (f'prog{bits}', '.text', '_start'),
+                                       (f'prog{bits}', '.data', 'version')):
+            with self.subTest(file=fixture, symbol=sym):
+               f = self.fixture(fixture)
+               value = self.elf(f).symbol(sym).value
+               r = self.run_tool(bits, f, '--get-section-sym-value',
+                                 section, sym)
+               self.assert_ok(r)
+               self.assertEqual(r.stdout.decode(), f'0x{value:08x}\n')
+
+   def test_get_section_sym_value_of_a_symbol_elsewhere(self):
+      cases = (
+         ('.data', 'caller', "not defined in section '.data'"),  # in .text
+         ('.text', 'foo', "not defined in section '.text'"),     # undefined
+         ('.text', 'shared', "not defined in section '.text'"),  # common
+         ('.text', 'no_such_symbol', 'not found'),
+         ('.nothing', 'caller', "No section '.nothing'"),
+      )
+      for bits in ELF_CLASSES:
+         for section, sym, message in cases:
+            with self.subTest(bits=bits, section=section, symbol=sym):
+               f = self.fixture(f'obj{bits}.o')
+               r = self.run_tool(bits, f, '--get-section-sym-value',
+                                 section, sym)
+               self.assert_fails(r, message)
+               self.assertEqual(r.stdout, b'')

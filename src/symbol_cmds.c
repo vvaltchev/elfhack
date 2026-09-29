@@ -157,6 +157,98 @@ REGISTER_CMD(
 
 /* ------------------------------------------------------------------------- */
 
+/*
+ * The names of the symbols defined in a section (st_shndx), one per line, in
+ * symbol table order. A section symbol (STT_SECTION) is named after its
+ * section.
+ */
+static int
+list_section_syms(struct elf_file_info *nfo, const char *section_name)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Shdr *section = get_section(h, section_name, NULL);
+   Elf_Shdr *strtab;
+   unsigned sym_count;
+   Elf_Sym *syms;
+
+   if (!section) {
+      fprintf(stderr, "ERROR: No section '%s'\n", section_name);
+      return 1;
+   }
+
+   syms = get_symbols_ptr(h, &sym_count);
+   strtab = get_symbols_strtab(h);
+
+   if (!syms) {
+      fprintf(stderr, "ERROR: No symbol table\n");
+      return 1;
+   }
+
+   for (unsigned i = 0; i < sym_count; i++) {
+      if (get_sym_section(h, syms + i) == section)
+         printf("%s\n", get_symbol_name(h, strtab, syms + i));
+   }
+
+   return 0;
+}
+
+REGISTER_CMD(
+   list_section_syms,
+   "--list-section-syms",
+   NULL, // short opt
+   "<section>",
+   1,
+   ELFHACK_READS_FILE,
+   &list_section_syms
+)
+
+/* ------------------------------------------------------------------------- */
+
+/* Like --get-sym-value, failing unless the symbol is defined in a section */
+static int
+get_section_sym_value(struct elf_file_info *nfo,
+                      const char *section_name,
+                      const char *name_or_index)
+{
+   Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
+   Elf_Shdr *section = get_section(h, section_name, NULL);
+   Elf_Sym *sym;
+
+   if (!section) {
+      fprintf(stderr, "ERROR: No section '%s'\n", section_name);
+      return 1;
+   }
+
+   sym = get_symbol(h, name_or_index, NULL);
+
+   if (!sym) {
+      fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
+      return 1;
+   }
+
+   if (get_sym_section(h, sym) != section) {
+      fprintf(stderr,
+              "ERROR: Symbol '%s' is not defined in section '%s'\n",
+              name_or_index, section_name);
+      return 1;
+   }
+
+   printf("0x%08lx\n", (unsigned long)sym->st_value);
+   return 0;
+}
+
+REGISTER_CMD(
+   get_section_sym_value,
+   "--get-section-sym-value",
+   NULL, // short opt
+   "<section> <symbol>",
+   2,
+   ELFHACK_READS_FILE,
+   &get_section_sym_value
+)
+
+/* ------------------------------------------------------------------------- */
+
 
 static int
 list_syms(struct elf_file_info *nfo)

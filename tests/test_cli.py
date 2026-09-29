@@ -113,6 +113,8 @@ class TestReadOnlyFiles(ElfhackTestCase):
       ('obj', ('--get-sym-value', 'caller')),
       ('obj', ('--list-syms',)),
       ('obj', ('--get-sym-info', 'caller')),
+      ('obj', ('--list-section-syms', '.text')),
+      ('obj', ('--get-section-sym-value', '.text', 'caller')),
       ('prog', ('--check-mem-size', '0x10000000000', 'b')),
       ('prog', ('--check-entry-point', 'ENTRY')),
       ('prog', ('--verify-flat-elf',)),

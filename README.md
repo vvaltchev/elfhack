@@ -86,6 +86,8 @@ These work on the static symbol table, `.symtab`.
 | `-s`, `--list-syms` | | List the symbols: index, value, size, type, bind, visibility, section index, name |
 | `-si`, `--get-sym-info` | `<symbol>` | Show the symbol's fields, decoded |
 | `-v`, `--get-sym-value` | `<symbol>` | Print the symbol's value |
+| `--list-section-syms` | `<section>` | Print the names of the symbols defined in `<section>`, one per line (a section symbol is named after its section) |
+| `--get-section-sym-value` | `<section> <symbol>` | Like `--get-sym-value`, but fail unless the symbol is defined in `<section>` |
 | `-ds`, `--dump-sym` | `<symbol>` | Print the bytes of the symbol's data, in hex. Fails for symbols without data in the file (undefined, absolute, common, in `.bss`) |
 | `--set-sym-strval` | `<section> <symbol> <string>` | Write a NUL-terminated string into the symbol's data, which must be in `<section>` and large enough |
 | `--set-sym-bind` | `<symbol> <bind>` | Set the symbol's binding (a number: 0 local, 1 global, 2 weak, ...) |

@@ -95,13 +95,16 @@ and arguments: `--copy`, `--link`, `--rename`, `--move-metadata`,
 `--drop-last-section`, `--set-phdr-rwx-flags`, `--set-sym-strval`,
 `--verify-flat-elf`, `--check-entry-point <addr>`, `--dump-sym`.
 
-Missing, used by Tilck's `scripts/templates/weaken_syms`:
-`--list-text-syms` (names of the symbols defined in `.text`) and
-`--get-text-sym <sym>` (value of a symbol, failing unless it is in
-`.text`). Both were removed in commit 64fb07a. They are generic, not
-Tilck-specific: add them back in a general form, e.g. a section filter
-for symbol listing with a names-only output, and a way to make
-`--get-sym-value` require a given section.
+Tilck's `scripts/templates/weaken_syms` uses `--list-text-syms` and
+`--get-text-sym <sym>`, removed here in commit 64fb07a. Their generic
+replacements: `--list-section-syms .text` and `--get-section-sym-value
+.text <sym>`. Compared with Tilck's in-tree elfhack on its kernel objects
+(i386, x86_64, riscv64): the same symbol lists (the `.text` section symbol
+is listed as `.text` instead of an empty line), and the same values for
+every symbol `weaken_syms` wraps. The only differences are names that
+occur more than once in `.symtab` (riscv64 `.L0 ` labels and `$x...`
+mapping symbols), which the old tool resolved to their first occurrence
+and the new one refuses as ambiguous.
 
 If Tilck ever needs a truly Tilck-specific command, it will ship it as a
 source file using `REGISTER_CMD` (via a pkgmgr patch) and build elfhack

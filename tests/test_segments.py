@@ -11,7 +11,9 @@ def loaded_mem_size(elf):
    The memory the loadable segments occupy once loaded at their physical
    addresses: from the lowest p_paddr to the highest segment end, each end
    rounded up to the segment's alignment (0 and 1 mean none). This is what a
-   bootloader copying the image to memory as it is has to reserve.
+   loader copying each PT_LOAD segment to its p_paddr has to reserve, like
+   Tilck's bootloaders do with the kernel. It is not the footprint of a flat
+   binary copied to memory as a whole file, like Tilck's elf_stage3.
    """
    loads = [s for s in elf.segments if s.type == PT_LOAD]
 
@@ -87,8 +89,7 @@ class TestMemSize(ElfhackTestCase):
    def test_mem_size_is_the_span_of_the_loadable_segments(self):
       # flat: only PT_LOAD, like Tilck's kernel. prog: also PT_NOTE,
       # PT_GNU_PROPERTY and a PT_GNU_STACK at address 0, like any userspace
-      # executable and Tilck's legacy bootloader (elf_stage3). obj: no
-      # program headers at all.
+      # executable. obj: no program headers at all.
       for bits in ELF_CLASSES:
          for name in (f'flat{bits}', f'prog{bits}', f'obj{bits}.o'):
             with self.subTest(file=name):

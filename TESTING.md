@@ -70,8 +70,9 @@ tests/
    fixtures/
       obj32.o obj64.o   relocatable objects (SHT_REL / SHT_RELA relocations)
       prog32 prog64     linked executables, no libc
-      flat32 flat64     "flat" images laid out like Tilck's kernel: only
-                        PT_LOAD segments, file mirroring memory
+      flat32 flat64     "flat" executables: runnable as raw images by
+                        skipping the headers (like Tilck's elf_stage3),
+                        only PT_LOAD segments (like Tilck's kernel)
       dyn32 dyn64       dynamically linked executables: .symtab and .dynsym,
                         static (--emit-relocs) and dynamic relocations
       src/              their sources

@@ -1,14 +1,20 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 
 /*
- * Linker script of the "flat" fixtures (flat32, flat64): an image laid out
- * like a kernel that a bootloader copies to memory as it is.
+ * Linker script of the "flat" fixtures (flat32, flat64). "Flat" as in Tilck:
+ * an ELF binary that can also be run as a raw, non-ELF image by skipping its
+ * headers. Tilck's legacy bootloader loads its stage 3 (elf_stage3) exactly
+ * like that: the whole file is copied to memory as it is, and executed from
+ * its lowest loaded address. --verify-flat-elf checks the two properties
+ * that make it work:
+ *
+ *   - The file mirrors memory: every loaded section's file offset equals
+ *     its distance, in memory, from where the start of the file lands.
+ *   - The entry point is the lowest address of any loaded section.
+ *
+ * Besides that, like Tilck's kernel (which is loaded segment by segment):
  *
  *   - Only PT_LOAD segments: no PT_GNU_STACK, PT_NOTE etc.
- *   - The file mirrors memory: the ELF headers are at offset 0 of the first
- *     segment, and every section's file offset equals its distance from
- *     the start of the image in memory.
- *   - The entry point is the lowest address of any section.
  *   - Linked at a high virtual address (VIRT_BASE) and loaded at a low
  *     physical one (PHYS_BASE): p_vaddr != p_paddr.
  *   - The data segment is larger in memory than in the file (.bss), and its

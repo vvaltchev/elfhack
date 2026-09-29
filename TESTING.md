@@ -70,6 +70,8 @@ tests/
    fixtures/
       obj32.o obj64.o   relocatable objects (SHT_REL / SHT_RELA relocations)
       prog32 prog64     linked executables, no libc
+      flat32 flat64     "flat" images laid out like Tilck's kernel: only
+                        PT_LOAD segments, file mirroring memory
       src/              their sources
       generate          the script that rebuilds them
 ```

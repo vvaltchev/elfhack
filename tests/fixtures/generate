@@ -29,10 +29,24 @@ LDFLAGS=(
    -Wl,--build-id=none
 )
 
+# Where the flat fixtures are linked (virtual) and loaded (physical)
+FLAT_VIRT_BASE_32=0xc0100000
+FLAT_VIRT_BASE_64=0xffffffff80100000
+FLAT_PHYS_BASE=0x100000
+
 for bits in 32 64; do
+
    "$CC" -m$bits "${CFLAGS[@]}" -c "$SRC/obj.c" -o "$DIR/obj$bits.o"
+
    "$CC" -m$bits "${CFLAGS[@]}" "${LDFLAGS[@]}" "$SRC/prog.c" \
       -o "$DIR/prog$bits"
+
+   virt_base="FLAT_VIRT_BASE_$bits"
+   "$CC" -m$bits "${CFLAGS[@]}" "${LDFLAGS[@]}" "$SRC/flat.c" \
+      -Wl,-T,"$SRC/flat.ld" \
+      -Wl,--defsym=VIRT_BASE=${!virt_base} \
+      -Wl,--defsym=PHYS_BASE=$FLAT_PHYS_BASE \
+      -o "$DIR/flat$bits"
 done
 
 echo "Fixtures regenerated in $DIR"

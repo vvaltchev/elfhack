@@ -3,8 +3,8 @@
 """
 A minimal, read-only ELF parser used by the tests to check what elfhack did,
 independently from elfhack's own code. It covers only what the tests need:
-the file header, section headers, symbols and relocations of little-endian
-ELF32 and ELF64 files.
+the file header, section and program headers, symbols and relocations of
+little-endian ELF32 and ELF64 files.
 """
 
 import struct
@@ -26,6 +26,8 @@ SHN_COMMON = 0xfff2
 
 STT_SECTION = 3
 
+PT_LOAD = 1
+
 # Offset of st_shndx inside a symbol table entry, per ELF class
 _SYM_SHNDX_OFFSET = {ELFCLASS32: 14, ELFCLASS64: 6}
 
@@ -35,9 +37,19 @@ _SHDR_FIELDS = {
    ELFCLASS64: {'link': (40, 4), 'entsize': (56, 8)},
 }
 
+# (offset, size) of the program header fields the tests patch, per ELF class
+_PHDR_FIELDS = {
+   ELFCLASS32: {'align': (28, 4)},
+   ELFCLASS64: {'align': (48, 8)},
+}
+
 Section = namedtuple(
    'Section',
    'index name type flags addr offset size link info entsize name_offset'
+)
+
+Segment = namedtuple(
+   'Segment', 'index type offset vaddr paddr filesz memsz flags align'
 )
 
 Symbol = namedtuple('Symbol', 'index name value size info other shndx')
@@ -48,6 +60,7 @@ _FORMATS = {
    ELFCLASS32: {
       'ehdr': '<16sHHIIIIIHHHHHH',
       'shdr': '<IIIIIIIIII',
+      'phdr': '<IIIIIIII',
       'sym': '<IIIBBH',
       'rel': '<II',
       'rela': '<IIi',
@@ -55,6 +68,7 @@ _FORMATS = {
    ELFCLASS64: {
       'ehdr': '<16sHHIQQQIHHHHHH',
       'shdr': '<IIQQQQIIQQ',
+      'phdr': '<IIQQQQQQ',
       'sym': '<IBBHQQ',
       'rel': '<QQ',
       'rela': '<QQq',
@@ -84,6 +98,7 @@ class ElfFile:
       self._fmt = _FORMATS[self.elf_class]
       self._parse_header()
       self._parse_sections()
+      self._parse_segments()
 
    def _unpack(self, fmt, offset):
       return struct.unpack_from(self._fmt[fmt], self.data, offset)
@@ -110,6 +125,28 @@ class ElfFile:
             i, self._cstring(shstrtab_offset + name), type_, flags, addr,
             offset, size, link, info, entsize, name
          ))
+
+   def _parse_segments(self):
+
+      self.segments = []
+
+      for i in range(self.phnum):
+
+         fields = self._unpack('phdr', self.phoff + i * self.phentsize)
+
+         if self.elf_class == ELFCLASS32:
+            type_, offset, vaddr, paddr, filesz, memsz, flags, align = fields
+         else:
+            type_, flags, offset, vaddr, paddr, filesz, memsz, align = fields
+
+         self.segments.append(Segment(
+            i, type_, offset, vaddr, paddr, filesz, memsz, flags, align
+         ))
+
+   def segment_header_field(self, index, field):
+      """(file offset, size) of `field` in the header of segment `index`."""
+      offset, size = _PHDR_FIELDS[self.elf_class][field]
+      return self.phoff + index * self.phentsize + offset, size
 
    def _cstring(self, offset):
       end = self.data.index(b'\0', offset)

@@ -75,6 +75,11 @@ get_symbol_name(Elf_Ehdr *h, Elf_Shdr *strtab, Elf_Sym *s);
 Elf_Sym *
 get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index);
 
+/*
+ * The memory the PT_LOAD segments occupy once loaded at their physical
+ * addresses: from the lowest p_paddr to the highest segment end, each
+ * end rounded up to its segment's p_align. 0 without PT_LOAD segments.
+ */
 size_t
 elf_calc_mem_size(Elf_Ehdr *h);
 

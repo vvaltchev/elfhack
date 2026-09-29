@@ -469,17 +469,33 @@ elf_calc_mem_size(Elf_Ehdr *h)
    Elf_Phdr *phdrs = (Elf_Phdr *)((char*)h + h->e_phoff);
    Elf_Addr min_pbegin = 0;
    Elf_Addr max_pend = 0;
+   bool found = false;
 
    for (uint32_t i = 0; i < h->e_phnum; i++) {
 
       Elf_Phdr *p = phdrs + i;
-      Elf_Addr pend = pow2_round_up_at(p->p_paddr + p->p_memsz, p->p_align);
+      Elf_Addr align, pend;
 
-      if (i == 0 || p->p_paddr < min_pbegin)
+      /*
+       * Only the PT_LOAD segments occupy memory: the others (PT_GNU_STACK,
+       * PT_NOTE, ...) describe something else, and PT_GNU_STACK in
+       * particular has p_paddr 0, which would stretch the image down to
+       * address 0.
+       */
+      if (p->p_type != PT_LOAD)
+         continue;
+
+      /* p_align 0 and 1 both mean "no alignment" */
+      align = p->p_align ? p->p_align : 1;
+      pend = pow2_round_up_at(p->p_paddr + p->p_memsz, align);
+
+      if (!found || p->p_paddr < min_pbegin)
          min_pbegin = p->p_paddr;
 
       if (pend > max_pend)
          max_pend = pend;
+
+      found = true;
    }
 
    return max_pend - min_pbegin;

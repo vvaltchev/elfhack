@@ -201,6 +201,35 @@ sym_get_visibility_str(unsigned visibility)
    return "?";
 }
 
+const char *
+sym_get_shndx_str(unsigned shndx)
+{
+   switch (shndx) {
+
+      case SHN_UNDEF:
+         return "UNDEF";
+
+      case SHN_ABS:
+         return "ABS";
+
+      case SHN_COMMON:
+         return "COMMON";
+
+      case SHN_XINDEX:
+         return "XINDEX";
+
+      default:
+
+         if (SHN_LOOS <= shndx && shndx <= SHN_HIOS)
+            return "os-spec-index";
+
+         if (SHN_LOPROC <= shndx && shndx <= SHN_HIPROC)
+            return "cpu-spec-index";
+   }
+
+   return "?";
+}
+
 Elf_Shdr *
 get_section_by_name(Elf_Ehdr *h,
                     const char *section_name,
@@ -315,8 +344,12 @@ get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 
    if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
 
-      Elf_Shdr *sec = sections + s->st_shndx;
-      name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
+      Elf_Shdr *sec = get_sym_section(h, s);
+
+      if (sec)
+         name = (char *)h + section_header_strtab->sh_offset + sec->sh_name;
+      else
+         name = ""; /* a section symbol without a section: no name */
 
    } else {
 
@@ -444,6 +477,18 @@ Elf_Shdr *
 get_sym_section(Elf_Ehdr *h, Elf_Sym *sym)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+
+   /*
+    * SHN_UNDEF and the reserved indexes (SHN_ABS, SHN_COMMON, ...) are not
+    * positions in the section table.
+    */
+   if (sym->st_shndx == SHN_UNDEF ||
+       sym->st_shndx >= SHN_LORESERVE ||
+       sym->st_shndx >= h->e_shnum)
+   {
+      return NULL;
+   }
+
    return sections + sym->st_shndx;
 }
 

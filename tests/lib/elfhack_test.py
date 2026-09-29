@@ -107,3 +107,14 @@ class ElfhackTestCase(unittest.TestCase):
    def read_bytes(self, path):
       with open(path, 'rb') as f:
          return f.read()
+
+   def patch_bytes(self, path, offset, data):
+      """Overwrite the file at `offset` with `data`: to craft broken input."""
+      with open(path, 'r+b') as f:
+         f.seek(offset)
+         f.write(data)
+
+   def patch_symbol_shndx(self, path, name, shndx):
+      elf = self.elf(path)
+      offset = elf.symbol_shndx_offset(elf.symbol(name).index)
+      self.patch_bytes(path, offset, shndx.to_bytes(2, 'little'))

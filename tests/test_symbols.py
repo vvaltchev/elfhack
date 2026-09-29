@@ -2,6 +2,7 @@
 
 """Actions on symbols and relocations."""
 
+from elf_reader import SHN_ABS, SHN_COMMON, SHN_UNDEF, STT_SECTION
 from elfhack_test import ElfhackTestCase, ELF_CLASSES
 
 
@@ -77,3 +78,95 @@ class TestSymbols(ElfhackTestCase):
             ]
             self.assertEqual(self.elf(f).relocations(rel), expected)
 
+
+   def test_dump_sym_prints_the_symbol_bytes(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+            elf = self.elf(f)
+            sym = elf.symbol('label')
+            sec = elf.sections[sym.shndx]
+            off = sec.offset + (sym.value - sec.addr)
+            data = elf.data[off:off + sym.size]
+
+            r = self.run_tool(bits, f, '--dump-sym', 'label')
+            self.assert_ok(r)
+            self.assertEqual(r.stdout.decode(),
+                             ''.join(f'{b:02x} ' for b in data) + '\n')
+
+   def test_dump_sym_refuses_symbols_without_data_in_the_file(self):
+      cases = (
+         ('foo', 'not defined in a section'),      # SHN_UNDEF
+         ('shared', 'not defined in a section'),   # SHN_COMMON
+         ('obj.c', 'not defined in a section'),    # SHN_ABS
+         ('zeroed', 'has no data in the file'),    # .bss, SHT_NOBITS
+      )
+      for bits in ELF_CLASSES:
+         for name, message in cases:
+            with self.subTest(bits=bits, symbol=name):
+               f = self.fixture(f'obj{bits}.o')
+               r = self.run_tool(bits, f, '--dump-sym', name)
+               self.assert_fails(r, message)
+               self.assertEqual(r.stdout, b'')
+
+   def test_get_sym_info_names_the_section_index(self):
+      cases = (
+         ('foo', f'st_shndx: {SHN_UNDEF} # UNDEF'),
+         ('shared', f'st_shndx: {SHN_COMMON} # COMMON'),
+         ('obj.c', f'st_shndx: {SHN_ABS} # ABS'),
+      )
+      for bits in ELF_CLASSES:
+         f = self.fixture(f'obj{bits}.o')
+         elf = self.elf(f)
+         data = elf.symbol('label').shndx
+
+         for name, line in cases + (
+            ('label', f'st_shndx: {data} # {elf.sections[data].name}'),
+         ):
+            with self.subTest(bits=bits, symbol=name):
+               r = self.run_tool(bits, f, '--get-sym-info', name)
+               self.assert_ok(r)
+               self.assertIn(line, r.stdout.decode().splitlines())
+
+   def test_get_sym_info_names_the_reserved_section_indexes(self):
+      for bits in ELF_CLASSES:
+         f = self.fixture(f'obj{bits}.o')
+         shnum = len(self.elf(f).sections)
+
+         for shndx, name in ((0xff00, 'cpu-spec-index'),
+                             (0xff20, 'os-spec-index'),
+                             (0xffff, 'XINDEX'),
+                             (0xfff5, '?'),      # reserved, unassigned
+                             (shnum, '?')):      # past the section table
+            with self.subTest(bits=bits, shndx=hex(shndx)):
+               self.patch_symbol_shndx(f, 'counter', shndx)
+               r = self.run_tool(bits, f, '--get-sym-info', 'counter')
+               self.assert_ok(r)
+               self.assertIn(f'st_shndx: {shndx} # {name}',
+                             r.stdout.decode().splitlines())
+
+   def test_list_syms_names_section_symbols_by_their_section(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+            elf = self.elf(f)
+            sym = next(s for s in elf.symbols()
+                       if s.info & 0xf == STT_SECTION)
+
+            r = self.run_tool(bits, f, '--list-syms')
+            self.assert_ok(r)
+            line = r.stdout.decode().splitlines()[sym.index].split()
+            self.assertEqual(line[-1], elf.sections[sym.shndx].name)
+
+            # A section symbol whose section is not in the table: no name,
+            # and no read out of the section table.
+            elf_shndx = elf.symbol_shndx_offset(sym.index)
+            self.patch_bytes(f, elf_shndx, SHN_ABS.to_bytes(2, 'little'))
+
+            r = self.run_tool(bits, f, '--list-syms')
+            self.assert_ok(r)
+            line = r.stdout.decode().splitlines()[sym.index].split()
+            self.assertEqual(line[0], str(sym.index))
+            self.assertEqual(line[-1], str(SHN_ABS))  # shndx, then no name

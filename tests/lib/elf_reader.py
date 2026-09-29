@@ -15,8 +15,19 @@ ELFCLASS64 = 2
 ELFDATA2LSB = 1
 
 SHT_SYMTAB = 2
+SHT_STRTAB = 3
 SHT_RELA = 4
+SHT_NOBITS = 8
 SHT_REL = 9
+
+SHN_UNDEF = 0
+SHN_ABS = 0xfff1
+SHN_COMMON = 0xfff2
+
+STT_SECTION = 3
+
+# Offset of st_shndx inside a symbol table entry, per ELF class
+_SYM_SHNDX_OFFSET = {ELFCLASS32: 14, ELFCLASS64: 6}
 
 Section = namedtuple(
    'Section',
@@ -132,6 +143,12 @@ class ElfFile:
          ))
 
       return result
+
+   def symbol_shndx_offset(self, index):
+      """The file offset of the st_shndx field of symbol `index`."""
+      symtab = next(s for s in self.sections if s.type == SHT_SYMTAB)
+      return (symtab.offset + index * symtab.entsize +
+              _SYM_SHNDX_OFFSET[self.elf_class])
 
    def symbol(self, name):
       """The symbol named `name`; fails if there is not exactly one."""

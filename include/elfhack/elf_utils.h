@@ -41,6 +41,9 @@ sym_get_type_str(unsigned type);
 const char *
 sym_get_visibility_str(unsigned visibility);
 
+const char *
+sym_get_shndx_str(unsigned shndx);
+
 Elf_Shdr *
 get_section_by_name(Elf_Ehdr *h, const char *name, unsigned *index);
 
@@ -71,6 +74,7 @@ elf_calc_mem_size(Elf_Ehdr *h);
 Elf_Sym *
 get_section_symbol_obj(Elf_Ehdr *h, Elf_Shdr *sec);
 
+/* The section `sym` is defined in, or NULL for SHN_UNDEF, SHN_ABS etc. */
 Elf_Shdr *
 get_sym_section(Elf_Ehdr *h, Elf_Sym *sym);
 

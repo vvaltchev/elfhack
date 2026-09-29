@@ -81,15 +81,31 @@ static int
 dump_sym(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
+   Elf_Shdr *section;
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
-   Elf_Shdr *section = sections + sym->st_shndx;
+   section = get_sym_section(h, sym);
+
+   if (!section) {
+      fprintf(stderr,
+              "ERROR: Symbol '%s' is not defined in a section (st_shndx: %s)\n",
+              name_or_index, sym_get_shndx_str(sym->st_shndx));
+      return 1;
+   }
+
+   if (section->sh_type == SHT_NOBITS) {
+      fprintf(stderr,
+              "ERROR: Symbol '%s' is in a SHT_NOBITS section (%s): "
+              "it has no data in the file\n",
+              name_or_index, get_section_name(h, section));
+      return 1;
+   }
+
    const long sym_sec_off = sym->st_value - section->sh_addr;
    const long sym_file_off = section->sh_offset + sym_sec_off;
 
@@ -183,16 +199,14 @@ get_sym_info(struct elf_file_info *nfo, const char *name_or_index)
 {
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *sym = get_symbol(h, name_or_index, NULL);
-   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
+   Elf_Shdr *s;
 
    if (!sym) {
       fprintf(stderr, "ERROR: Symbol '%s' not found\n", name_or_index);
       return 1;
    }
 
-   Elf_Shdr *s = sections + sym->st_shndx;
-   char *sh_name = (char *)h + section_header_strtab->sh_offset + s->sh_name;
+   s = get_sym_section(h, sym);
 
    printf("st_info:  0x%02x # bind: %d (%s), type: %d (%s)\n",
           sym->st_info,
@@ -206,10 +220,9 @@ get_sym_info(struct elf_file_info *nfo, const char *name_or_index)
           ELF_ST_VISIBILITY(sym->st_other),
           sym_get_visibility_str(ELF_ST_VISIBILITY(sym->st_other)));
 
-   if (sym->st_shndx)
-      printf("st_shndx: %d # %s\n", sym->st_shndx, sh_name);
-   else
-      printf("st_shndx: %d\n", sym->st_shndx);
+   printf("st_shndx: %d # %s\n",
+          sym->st_shndx,
+          s ? get_section_name(h, s) : sym_get_shndx_str(sym->st_shndx));
 
    printf("st_value: 0x%08lx\n", (long) sym->st_value);
    printf("st_size:  0x%08lx\n", (long) sym->st_size);

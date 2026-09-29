@@ -475,11 +475,11 @@ redirect_rel_internal_index(Elf_Ehdr *h,
 
    } else {
 
-      Elf_Rela *rel = (void *)((char *)h + sec->sh_offset);
+      Elf_Rel *rel = (void *)((char *)h + sec->sh_offset);
       unsigned count = sec->sh_size / sec->sh_entsize;
 
       for (unsigned i = 0; i < count; i++) {
-         Elf_Rela *r = rel + i;
+         Elf_Rel *r = rel + i;
          if (ELF_R_SYM(r->r_info) == index1) {
             r->r_info = ELF_R_INFO(index2, ELF_R_TYPE(r->r_info));
          } else if (swap && ELF_R_SYM(r->r_info) == index2) {

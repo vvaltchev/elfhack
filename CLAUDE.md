@@ -86,9 +86,7 @@ None left.
 
 ### P2: build, CI, docs
 
-1. README: fix the typos ("Disclamer", "what are you going") and
-   document the command line (actions, modifiers, multiple actions per
-   run, `#N` indexes, `-o`).
+None left.
 
 ## Tilck integration: what Tilck needs from this repo
 

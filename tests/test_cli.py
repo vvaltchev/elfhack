@@ -14,6 +14,16 @@ class TestCli(ElfhackTestCase):
             self.assertIn('Usage:', r.stderr)
             self.assertIn('--rename', r.stderr)
 
+   def test_help_lists_every_kind_of_option(self):
+      # One option per type: action, enum modifier, string modifier
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+            r = self.run_tool(bits, '--help')
+            words = r.stderr.split()
+            for opt in ('--list-syms', '--set-symbol-input-format',
+                        '--output', '-o'):
+               self.assertTrue(opt in words, f'{opt} missing from --help')
+
    def test_unknown_option_fails(self):
       for bits in ELF_CLASSES:
          with self.subTest(bits=bits):

@@ -76,27 +76,23 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
-   ENUM options (`src/elfhack.c:80-85`) but not `ELFHACK_STRING`, so
-   `-o/--output` never appears in `--help`.
-
-2. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
+1. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
    any unit and silently treats everything except `kb` as bytes.
    Validate `b|kb`.
 
-3. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
+2. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
    self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
    non-inline `static` function in a header, which is why
    `-Wno-unused-function` is needed; make it `static inline` and drop the
    flag.
 
-4. **Diagnostics.** "option not recognized" goes to stdout
-   (`src/elfhack.c:381`); a few messages lack a trailing `\n`
-   (`validate_tool_options()` at `src/elfhack.c:434`, "bind is too
+3. **Diagnostics.** "option not recognized" goes to stdout
+   (`src/elfhack.c:382`); a few messages lack a trailing `\n`
+   (`validate_tool_options()` at `src/elfhack.c:435`, "bind is too
    high", "type is too high", the `swap_symbols` errors).
    `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-5. **The input is always opened `O_RDWR`** (`src/elfhack.c:466`), even
+4. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
    for read-only actions, so a read-only file cannot be inspected. Open
    read-only when no mutating action is on the command line (needs a
    `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -104,14 +100,14 @@ None left.
 
 ### P2: build, CI, docs
 
-6. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+5. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-7. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+6. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-8. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+7. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-9. README: fix the typos ("Disclamer", "what are you going") and
+8. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

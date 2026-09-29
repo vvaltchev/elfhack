@@ -83,6 +83,7 @@ show_help(struct elf_file_info *nfo)
    fprintf(stderr, "Modifiers:\n");
    dump_options(ELFHACK_FLAG);
    dump_options(ELFHACK_ENUM);
+   dump_options(ELFHACK_STRING);
    return 0;
 }
 

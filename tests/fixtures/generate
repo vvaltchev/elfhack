@@ -49,4 +49,21 @@ for bits in 32 64; do
       -o "$DIR/flat$bits"
 done
 
+# The dynamic fixtures need a shared library to be linked against: build it
+# in a temporary directory, it is not a fixture itself.
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+for bits in 32 64; do
+
+   "$CC" -m$bits "${CFLAGS[@]}" -fPIC -shared -nostdlib \
+      -Wl,--build-id=none -Wl,-soname,libdyn.so \
+      "$SRC/dynlib.c" -o "$TMP/libdyn.so"
+
+   "$CC" -m$bits "${CFLAGS[@]}" -nostdlib -no-pie \
+      -Wl,--build-id=none -Wl,--emit-relocs \
+      -Wl,--dynamic-linker=/lib/ld-elfhack-fixture.so \
+      "$SRC/dyn.c" "$TMP/libdyn.so" -o "$DIR/dyn$bits"
+done
+
 echo "Fixtures regenerated in $DIR"

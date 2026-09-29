@@ -32,7 +32,7 @@ redirect_reloc(struct elf_file_info *nfo, const char *sym1, const char *sym2)
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
    for (uint32_t i = 0; i < h->e_shnum; i++) {
       Elf_Shdr *s = sections + i;
-      if (s->sh_type == SHT_REL || s->sh_type == SHT_RELA) {
+      if (is_symtab_reloc_section(h, s)) {
          redirect_rel_internal(h, s, s1, s2);
       }
    }

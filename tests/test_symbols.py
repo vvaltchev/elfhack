@@ -279,3 +279,66 @@ class TestSymbols(ElfhackTestCase):
                r = self.run_tool(bits, f, '--swap-symbols', *args)
                self.assert_fails(r, message)
                self.assertEqual(self.read_bytes(f), before)
+
+   # The dynamic fixtures have static relocations (.rel[a].text, indexes into
+   # .symtab) and dynamic ones (.rel[a].plt, indexes into .dynsym). Actions on
+   # .symtab symbols must rewrite the former and leave the latter alone.
+
+   def dyn_reloc_sections(self, bits):
+      rela = '' if bits == 32 else 'a'
+      return f'.rel{rela}.text', f'.rel{rela}.plt'
+
+   def test_redirect_reloc_leaves_dynamic_relocations_alone(self):
+      for bits in ELF_CLASSES:
+         static, dynamic = self.dyn_reloc_sections(bits)
+
+         # lib_foo -> lib_bar: the calls in .text are redirected. #2 -> #3:
+         # .symtab entries whose indexes are lib_foo's and lib_bar's in
+         # .dynsym, as used by .rel[a].plt.
+         for sym1, sym2 in (('lib_foo', 'lib_bar'), ('#2', '#3')):
+            with self.subTest(bits=bits, symbols=(sym1, sym2)):
+
+               f = self.fixture(f'dyn{bits}')
+               elf = self.elf(f)
+               i1 = int(sym1[1:]) if sym1[0] == '#' else elf.symbol(sym1).index
+               i2 = int(sym2[1:]) if sym2[0] == '#' else elf.symbol(sym2).index
+               before = elf.relocations(static)
+               dyn_before = elf.section_data(dynamic)
+
+               self.assert_ok(self.run_tool(bits, f, '--redirect-reloc',
+                                            sym1, sym2))
+
+               elf = self.elf(f)
+               self.assertEqual(
+                  elf.relocations(static),
+                  [r._replace(sym=i2) if r.sym == i1 else r for r in before]
+               )
+               self.assertEqual(elf.section_data(dynamic), dyn_before)
+
+   def test_swap_symbols_leaves_dynamic_relocations_alone(self):
+      for bits in ELF_CLASSES:
+         static, dynamic = self.dyn_reloc_sections(bits)
+         elf = self.elf(self.fixture(f'dyn{bits}'))
+         foo, baz = elf.symbol('lib_foo').index, elf.symbol('lib_baz').index
+
+         for i1, i2 in ((foo, baz), (2, 3)):
+            with self.subTest(bits=bits, indexes=(i1, i2)):
+
+               f = self.fixture(f'dyn{bits}')
+               elf = self.elf(f)
+               syms = elf.symbols()
+               before = elf.relocations(static)
+               dyn_before = elf.section_data(dynamic)
+
+               self.assert_ok(self.run_tool(bits, f, '--swap-symbols',
+                                            str(i1), str(i2)))
+
+               elf = self.elf(f)
+               swap = {i1: i2, i2: i1}
+               self.assertEqual(elf.symbols()[i1].name, syms[i2].name)
+               self.assertEqual(elf.symbols()[i2].name, syms[i1].name)
+               self.assertEqual(
+                  elf.relocations(static),
+                  [r._replace(sym=swap.get(r.sym, r.sym)) for r in before]
+               )
+               self.assertEqual(elf.section_data(dynamic), dyn_before)

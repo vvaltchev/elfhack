@@ -64,6 +64,14 @@ get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol);
 Elf_Sym *
 get_symbol_by_index(Elf_Ehdr *h, unsigned index);
 
+/*
+ * Is `sec` a SHT_REL or SHT_RELA section whose entries refer to .symtab
+ * (its sh_link)? Dynamic relocations (.rela.dyn, .rela.plt) refer to
+ * .dynsym instead: there, the same index means a different symbol.
+ */
+bool
+is_symtab_reloc_section(Elf_Ehdr *h, Elf_Shdr *sec);
+
 /* The string table of .symtab (its sh_link), or NULL without .symtab. */
 Elf_Shdr *
 get_symbols_strtab(Elf_Ehdr *h);

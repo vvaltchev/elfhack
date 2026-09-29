@@ -72,6 +72,8 @@ tests/
       prog32 prog64     linked executables, no libc
       flat32 flat64     "flat" images laid out like Tilck's kernel: only
                         PT_LOAD segments, file mirroring memory
+      dyn32 dyn64       dynamically linked executables: .symtab and .dynsym,
+                        static (--emit-relocs) and dynamic relocations
       src/              their sources
       generate          the script that rebuilds them
 ```

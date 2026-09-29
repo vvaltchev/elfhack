@@ -334,6 +334,20 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
    return (Elf_Sym *)((char *)h + symtab->sh_offset);
 }
 
+bool
+is_symtab_reloc_section(Elf_Ehdr *h, Elf_Shdr *sec)
+{
+   unsigned symtab_index;
+
+   if (sec->sh_type != SHT_REL && sec->sh_type != SHT_RELA)
+      return false;
+
+   if (!get_section_by_name(h, ".symtab", &symtab_index))
+      return false;
+
+   return sec->sh_link == symtab_index;
+}
+
 Elf_Shdr *
 get_symbols_strtab(Elf_Ehdr *h)
 {
@@ -710,10 +724,9 @@ swap_symbols_index(Elf_Ehdr *h, int idx1, int idx2)
 
       Elf_Shdr *s = sections + i;
 
-      if (s->sh_type != SHT_REL && s->sh_type != SHT_RELA)
+      if (!is_symtab_reloc_section(h, s))
          continue;
 
-      /* Rel or Rela section */
       redirect_rel_internal_index(h, s, idx1, idx2, true);
    }
 }

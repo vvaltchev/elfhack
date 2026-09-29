@@ -451,40 +451,21 @@ validate_tool_options(void)
    }
 }
 
-int
-main(int argc, char **argv)
+/*
+ * Map the ELF file at `path` and run all the actions on it. `name` is how
+ * the file is called in the messages: it differs from `path` when the file
+ * is a temporary copy made for --output.
+ */
+static int
+process_elf_file(const char *path, const char *name, int argc, char **argv)
 {
    struct elf_file_info nfo = {0};
    struct stat statbuf;
    size_t page_size;
-   const char *dest_file;
-   const char *elf_file;
    int rc;
 
-   validate_tool_options();
-
-   if (argc <= 1 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")) {
-      show_help(NULL);
-      return 1;
-   }
-
-   rc = process_all_options(NULL, argc - 2, argv + 2, true);
-   if (rc) {
-      return 1;
-   }
-
-   elf_file = argv[1];
-   dest_file = get_string_option_val("output");
-
-   if (dest_file) {
-      if (file_copy(elf_file, dest_file)) {
-         return 1;
-      }
-      elf_file = dest_file;
-   }
-
-   nfo.path = elf_file;
-   nfo.fd = open(nfo.path, O_RDWR);
+   nfo.path = name;
+   nfo.fd = open(path, O_RDWR);
 
    if (nfo.fd < 0) {
       perror("open failed");
@@ -525,7 +506,7 @@ main(int argc, char **argv)
       goto end;
    }
 
-   rc = process_all_options(&nfo, argc - 2, argv + 2, false);
+   rc = process_all_options(&nfo, argc, argv, false);
 
 end:
    if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {
@@ -533,5 +514,49 @@ end:
    }
 
    close(nfo.fd);
+   return rc;
+}
+
+int
+main(int argc, char **argv)
+{
+   const char *elf_file;
+   const char *dest_file;
+   char *tmp_file;
+   int rc;
+
+   validate_tool_options();
+
+   if (argc <= 1 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")) {
+      show_help(NULL);
+      return 1;
+   }
+
+   rc = process_all_options(NULL, argc - 2, argv + 2, true);
+   if (rc) {
+      return 1;
+   }
+
+   elf_file = argv[1];
+   dest_file = get_string_option_val("output");
+
+   if (!dest_file)
+      return process_elf_file(elf_file, elf_file, argc - 2, argv + 2);
+
+   /*
+    * With --output, work on a temporary copy placed next to `dest_file` and
+    * rename it over `dest_file` only if all the actions succeeded. That way
+    * a failed run never leaves a half-modified output behind (which `make`
+    * would then consider up to date), and `dest_file` may even be the input
+    * file itself.
+    */
+   tmp_file = file_copy_to_temp(elf_file, dest_file);
+
+   if (!tmp_file)
+      return 1;
+
+   rc = process_elf_file(tmp_file, dest_file, argc - 2, argv + 2);
+   rc = file_commit_temp(tmp_file, dest_file, rc);
+   free(tmp_file);
    return rc;
 }

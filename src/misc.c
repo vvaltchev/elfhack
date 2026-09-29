@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "elfhack/misc.h"
+
 bool
 is_plain_integer(const char *str)
 {
@@ -42,98 +44,153 @@ die_with_invalid_index_error(const char *str)
 }
 
 static int
-write_chunk_to_file(int fd, void *buf, ssize_t total_size)
+write_all(int fd, const char *buf, size_t size)
 {
+   size_t written = 0;
    ssize_t count;
-   ssize_t total_written = 0;
 
-   while (total_written < total_size) {
+   while (written < size) {
 
-      count = write(fd, buf + total_written, total_size - total_written);
+      count = write(fd, buf + written, size - written);
 
-      if (count <= 0) {
+      if (count < 0) {
 
          if (errno == EINTR)
             continue;
 
-         if (errno)
-            fprintf(stderr, "Write error: %s\n", strerror(errno));
-
-         break;
+         return -1;
       }
 
-      total_written += count;
+      written += (size_t)count;
    }
 
    return 0;
 }
 
-int
-file_copy(const char *src, const char *dest)
+static int
+copy_fd_contents(int src_fd, int dest_fd)
+{
+   char buf[4096];
+   ssize_t count;
+
+   while (true) {
+
+      count = read(src_fd, buf, sizeof(buf));
+
+      if (count < 0) {
+
+         if (errno == EINTR)
+            continue;
+
+         return -1;
+      }
+
+      if (count == 0)
+         return 0; /* EOF */
+
+      if (write_all(dest_fd, buf, (size_t)count) < 0)
+         return -1;
+   }
+}
+
+/*
+ * Create a new temporary file in the same directory as `dest` (so that it can
+ * later be renamed over it atomically) and fill it with `src_fd`'s contents
+ * and `mode`. Returns the path of the temporary file, or NULL on failure.
+ */
+static char *
+create_temp_copy(int src_fd, mode_t mode, const char *src, const char *dest)
+{
+   static const char suffix[] = ".XXXXXX";
+   char *tmp_path;
+   int tmp_fd;
+   int err = 0;
+
+   tmp_path = malloc(strlen(dest) + sizeof(suffix));
+
+   if (!tmp_path) {
+      fprintf(stderr, "ERROR: out of memory\n");
+      return NULL;
+   }
+
+   strcpy(tmp_path, dest);
+   strcat(tmp_path, suffix);
+   tmp_fd = mkstemp(tmp_path);
+
+   if (tmp_fd < 0) {
+      fprintf(stderr, "ERROR: cannot create a temporary file for %s: %s\n",
+              dest, strerror(errno));
+      free(tmp_path);
+      return NULL;
+   }
+
+   if (fchmod(tmp_fd, mode & 07777) < 0)
+      err = errno;
+   else if (copy_fd_contents(src_fd, tmp_fd) < 0)
+      err = errno;
+
+   /* close() can report a deferred write error: check it too */
+   if (close(tmp_fd) < 0 && !err)
+      err = errno;
+
+   if (err) {
+      fprintf(stderr, "ERROR: cannot copy %s to %s: %s\n",
+              src, tmp_path, strerror(err));
+      unlink(tmp_path);
+      free(tmp_path);
+      return NULL;
+   }
+
+   return tmp_path;
+}
+
+char *
+file_copy_to_temp(const char *src, const char *dest)
 {
    struct stat statbuf;
-   int rc, source_fd, dest_fd;
-   ssize_t read_count;
-   ssize_t total_read;
-   char buf[4096];
+   char *tmp_path = NULL;
+   int src_fd;
 
-   printf("file copy %s -> %s\n", src, dest);
+   src_fd = open(src, O_RDONLY);
 
-   rc = stat(src, &statbuf);
-   if (rc < 0) {
-      fprintf(stderr, "Cannot stat file %s: %s", src, strerror(errno));
-      return 1;
+   if (src_fd < 0) {
+      fprintf(stderr, "ERROR: cannot open %s for reading: %s\n",
+              src, strerror(errno));
+      return NULL;
+   }
+
+   if (fstat(src_fd, &statbuf) < 0) {
+      fprintf(stderr, "ERROR: cannot stat %s: %s\n", src, strerror(errno));
+      goto out;
    }
 
    if (!S_ISREG(statbuf.st_mode)) {
-      fprintf(stderr, "%s is not a regular file\n", src);
-      return 1;
+      fprintf(stderr, "ERROR: %s is not a regular file\n", src);
+      goto out;
    }
 
-   source_fd = open(src, O_RDONLY);
-   if (source_fd < 0) {
-      fprintf(stderr,
-              "Cannot open for reading file %s: %s\n",
-              src, strerror(errno));
-      return 1;
-   }
+   tmp_path = create_temp_copy(src_fd, statbuf.st_mode, src, dest);
 
-   dest_fd = open(dest, statbuf.st_mode | O_CREAT | O_WRONLY);
-   if (dest_fd < 0) {
-      fprintf(stderr,
-              "Cannot open file %s for writing: %s\n",
-              dest, strerror(errno));
-      return 1;
-   }
-
-   errno = 0;
-   total_read = 0;
-
-   while (total_read < statbuf.st_size) {
-
-      read_count = read(source_fd, buf, sizeof(buf));
-
-      if (read_count <= 0) {
-
-         if (errno == EINTR)
-            continue;
-
-         if (errno)
-            fprintf(stderr, "Read error: %s\n", strerror(errno));
-
-         break;
-      }
-
-      total_read += read_count;
-      rc = write_chunk_to_file(dest_fd, buf, read_count);
-
-      if (rc)
-         break; /* write error */
-   }
-
-   close(dest_fd);
-   close(source_fd);
-   return 0;
+out:
+   close(src_fd);
+   return tmp_path;
 }
 
+int
+file_commit_temp(const char *tmp_path, const char *dest, int rc)
+{
+   if (rc) {
+      unlink(tmp_path);
+      return rc;
+   }
+
+   if (rename(tmp_path, dest) < 0) {
+      fprintf(stderr, "ERROR: cannot rename %s to %s: %s\n",
+              tmp_path, dest, strerror(errno));
+      unlink(tmp_path);
+      return 1;
+   }
+
+   return 0;
+}
 

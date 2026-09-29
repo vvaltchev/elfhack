@@ -24,6 +24,15 @@ list(APPEND
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)
 
+# Coverage instrumentation (gcov). Normally not set by hand: `tests/run_tests
+# --coverage` makes its own build with it (see TESTING.md).
+option(COVERAGE "Build with gcov coverage instrumentation" OFF)
+
+if (COVERAGE)
+   add_compile_options(--coverage -O0)
+   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+endif()
+
 # The ELF class is fixed at compile time (USE_ELF32 / USE_ELF64), so each
 # class gets its own binary: elfhack32 for ELFCLASS32 files and elfhack64
 # for ELFCLASS64 ones, whatever the bitness of the host.
@@ -36,3 +45,10 @@ endforeach()
 
 include(GNUInstallDirs)
 install(TARGETS elfhack32 elfhack64 DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# `ctest` (or `make test`) runs the test suite on this build's binaries.
+enable_testing()
+add_test(
+   NAME elfhack_tests
+   COMMAND ${CMAKE_SOURCE_DIR}/tests/run_tests --build-dir ${CMAKE_BINARY_DIR}
+)

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Regenerate the ELF fixtures used by the tests from the sources in src/.
+# The generated files are committed: running the tests does not need this.
+#
+# Requirements: gcc and binutils. No 32-bit libraries or headers (e.g.
+# gcc-multilib) are needed: the sources are compiled freestanding, without
+# system headers, and linked without libc, start files or libgcc.
+
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC="$DIR/src"
+CC="${CC:-gcc}"
+
+CFLAGS=(
+   -O1
+   -fno-pic
+   -ffreestanding
+   -nostdinc
+   -fno-stack-protector
+   -fno-asynchronous-unwind-tables
+)
+
+LDFLAGS=(
+   -nostdlib
+   -static
+   -Wl,--build-id=none
+)
+
+for bits in 32 64; do
+   "$CC" -m$bits "${CFLAGS[@]}" -c "$SRC/obj.c" -o "$DIR/obj$bits.o"
+   "$CC" -m$bits "${CFLAGS[@]}" "${LDFLAGS[@]}" "$SRC/prog.c" \
+      -o "$DIR/prog$bits"
+done
+
+echo "Fixtures regenerated in $DIR"

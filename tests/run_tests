@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause
+
+"""
+Run elfhack's test suite (see TESTING.md).
+
+The tests run the elfhack32/elfhack64 binaries of a build directory on copies
+of the ELF fixtures in tests/fixtures/, and check the results with an ELF
+reader of their own (tests/lib/elf_reader.py).
+
+With --coverage, the runner makes its own instrumented build in
+build-coverage/, runs the tests on it and produces a report with lcov.
+"""
+
+import argparse
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import unittest
+
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJ_DIR = os.path.dirname(TESTS_DIR)
+COVERAGE_BUILD_DIR = os.path.join(PROJ_DIR, 'build-coverage')
+
+sys.path.insert(0, os.path.join(TESTS_DIR, 'lib'))
+
+
+def parse_args():
+
+   p = argparse.ArgumentParser(description='Run the elfhack tests.')
+
+   p.add_argument('-b', '--build-dir',
+                  default=os.path.join(PROJ_DIR, 'build'),
+                  help='directory with elfhack32 and elfhack64 '
+                       '(default: build/). Ignored with --coverage.')
+
+   p.add_argument('-f', '--filter', action='append', default=[],
+                  metavar='PATTERN',
+                  help='run only the tests whose name contains PATTERN '
+                       '(shell-style wildcards allowed; repeatable)')
+
+   p.add_argument('-l', '--list', action='store_true',
+                  help='list the tests and exit')
+
+   p.add_argument('-v', '--verbose', action='store_true',
+                  help='print each test as it runs')
+
+   p.add_argument('-c', '--coverage', action='store_true',
+                  help='build with coverage instrumentation in '
+                       'build-coverage/ and report the coverage with lcov')
+
+   return p.parse_args()
+
+
+def die(msg):
+   print(f'ERROR: {msg}', file=sys.stderr)
+   sys.exit(1)
+
+
+def run(cmd):
+   """
+   Run a helper command (cmake, lcov, ...) silently. If it fails, print all
+   its output and die.
+   """
+   p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                      text=True)
+
+   if p.returncode != 0:
+      sys.stderr.write(p.stdout)
+      die(f'command failed ({p.returncode}): {" ".join(cmd)}')
+
+
+def iter_tests(suite):
+   for t in suite:
+      if isinstance(t, unittest.TestSuite):
+         yield from iter_tests(t)
+      else:
+         yield t
+
+
+def load_tests(filters):
+
+   loader = unittest.TestLoader()
+
+   if filters:
+      loader.testNamePatterns = [
+         f if '*' in f else f'*{f}*' for f in filters
+      ]
+
+   suite = loader.discover(TESTS_DIR, pattern='test_*.py',
+                           top_level_dir=TESTS_DIR)
+
+   # discover() reports import errors as synthetic failing tests: make them
+   # fatal here instead, with the actual error.
+   for t in iter_tests(suite):
+      if type(t).__name__ == '_FailedTest':
+         die(f'cannot load {t.id()}:\n{t._exception}')
+
+   return suite
+
+
+def check_binaries(build_dir):
+   for bits in (32, 64):
+      path = os.path.join(build_dir, f'elfhack{bits}')
+      if not os.access(path, os.X_OK):
+         die(f'{path} not found: build elfhack first (e.g. `make`), '
+             f'or pass --build-dir')
+
+
+#
+# Coverage
+#
+
+def coverage_prepare():
+
+   for tool in ('lcov', 'genhtml'):
+      if not shutil.which(tool):
+         die(f'{tool} not found: coverage needs lcov (see TESTING.md)')
+
+   run(['cmake', '-S', PROJ_DIR, '-B', COVERAGE_BUILD_DIR,
+        '-DCOVERAGE=ON', '-DCMAKE_BUILD_TYPE=Debug',
+        '-DCMAKE_C_COMPILER=gcc'])
+
+   run(['cmake', '--build', COVERAGE_BUILD_DIR])
+
+   # Start from zero: counters accumulate across runs.
+   for root, _, files in os.walk(COVERAGE_BUILD_DIR):
+      for f in files:
+         if f.endswith('.gcda'):
+            os.remove(os.path.join(root, f))
+
+
+def read_tracefile(info):
+   """
+   Per-file line and function counts from an lcov tracefile: a dict of
+   {path: [lines_hit, lines_found, funcs_hit, funcs_found]}. The records
+   (SF, LH, LF, FNH, FNF, end_of_record) are the same in lcov 1.x and 2.x,
+   unlike the output of `lcov --list`.
+   """
+   keys = {'LH': 0, 'LF': 1, 'FNH': 2, 'FNF': 3}
+   result = {}
+   counts = None
+
+   with open(info) as f:
+      for line in f:
+
+         key, _, value = line.strip().partition(':')
+
+         if key == 'SF':
+            counts = result.setdefault(value, [0, 0, 0, 0])
+         elif key in keys:
+            counts[keys[key]] += int(value)
+
+   return result
+
+
+def print_coverage_summary(info):
+
+   def pct(hit, found):
+      return f'{100 * hit / found:5.1f}%' if found else '    -'
+
+   files = read_tracefile(info)
+   total = [sum(c[i] for c in files.values()) for i in range(4)]
+   w = max(len(os.path.relpath(p, PROJ_DIR)) for p in files)
+
+   print(f'\n{"File":<{w}}  {"Lines":>15}  {"Functions":>13}')
+
+   for path, (lh, lf, fh, ff) in sorted(files.items()):
+      print(f'{os.path.relpath(path, PROJ_DIR):<{w}}  '
+            f'{pct(lh, lf)} {lh:4}/{lf:<4}  {pct(fh, ff)} {fh:3}/{ff:<3}')
+
+   lh, lf, fh, ff = total
+   print(f'{"Total":<{w}}  {pct(lh, lf)} {lh:4}/{lf:<4}  '
+         f'{pct(fh, ff)} {fh:3}/{ff:<3}')
+
+
+def coverage_report():
+
+   info = os.path.join(COVERAGE_BUILD_DIR, 'coverage.info')
+   html = os.path.join(COVERAGE_BUILD_DIR, 'coverage-html')
+
+   run(['lcov', '--quiet', '--capture', '--directory', COVERAGE_BUILD_DIR,
+        '--output-file', info])
+
+   # Only elfhack's own sources: no system or 3rd-party headers.
+   run(['lcov', '--quiet', '--extract', info,
+        os.path.join(PROJ_DIR, 'src', '*'),
+        os.path.join(PROJ_DIR, 'include', 'elfhack', '*'),
+        '--output-file', info])
+
+   run(['genhtml', '--quiet', info, '--output-directory', html])
+
+   print_coverage_summary(info)
+   print(f'\nHTML report: {os.path.join(html, "index.html")}')
+
+
+def main():
+
+   args = parse_args()
+
+   if platform.system() != 'Linux':
+      print(f'The elfhack tests run only on Linux (this is '
+            f'{platform.system()}): skipping.')
+      return 0
+
+   suite = load_tests(args.filter)
+
+   if args.list:
+      for t in iter_tests(suite):
+         print(t.id())
+      return 0
+
+   if args.coverage:
+      coverage_prepare()
+      build_dir = COVERAGE_BUILD_DIR
+   else:
+      build_dir = os.path.abspath(args.build_dir)
+
+   check_binaries(build_dir)
+   os.environ['ELFHACK_BUILD_DIR'] = build_dir
+
+   runner = unittest.TextTestRunner(verbosity=2 if args.verbose else 1)
+   result = runner.run(suite)
+
+   if args.coverage:
+      coverage_report()
+
+   return 0 if result.wasSuccessful() else 1
+
+
+if __name__ == '__main__':
+   sys.exit(main())

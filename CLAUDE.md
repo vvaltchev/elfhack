@@ -37,6 +37,23 @@ files of the other class.
 With strict `-std=c99` it fails: `ftruncate` is not declared unless a
 POSIX feature macro is defined.
 
+## Testing
+
+Read `TESTING.md` before touching the tests. In short:
+
+```bash
+make test                    # build, then run the whole suite (~0.1s)
+tests/run_tests -f <name>    # only the matching tests
+make coverage                # instrumented build in build-coverage/ + lcov
+```
+
+Python `unittest`, Linux only, no dependencies beyond python3, cmake,
+gcc and (for coverage) lcov. Results are checked with
+`tests/lib/elf_reader.py`, never with elfhack itself.
+
+**Every fix comes with a test that fails before the fix and passes
+after it.** Run the test against the unfixed binary to see it fail.
+
 ## Conventions
 
 - License: BSD-2-Clause (`LICENSE`). SPDX header in every file.
@@ -109,14 +126,9 @@ None left.
 9. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
 10. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
-    retired; `-DTESTS=1` is passed but there are no tests. Add macOS
-    and FreeBSD jobs.
-11. **No tests at all.** Add a test suite with small committed ELF32
-    and ELF64 fixtures (object files and a linked binary) so it runs on
-    hosts that cannot produce 32-bit output (macOS). Every P0/P1 item
-    above gets a regression test; exit codes are checked for every
-    failure path.
-12. README: fix the typos ("Disclamer", "what are you going") and
+    retired, and the workflow does not run the test suite (`-DTESTS=1`
+    is passed but means nothing). Add macOS and FreeBSD build jobs.
+11. README: fix the typos ("Disclamer", "what are you going") and
     document the command line (actions, modifiers, multiple actions per
     run, `#N` indexes, `-o`).
 

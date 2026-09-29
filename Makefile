@@ -14,8 +14,14 @@ clean: $(PREREQUISITES)
 install: $(PREREQUISITES)
 	@$(MAKE) -C build install
 
+test: all
+	@tests/run_tests
+
+coverage:
+	@tests/run_tests --coverage
+
 build/CMakeCache.txt:
 	@echo No CMakeCache.txt found: running CMake first.
 	@mkdir -p build && cd build && cmake ..
 
-.PHONY: all clean install
+.PHONY: all clean install test coverage

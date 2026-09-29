@@ -297,17 +297,47 @@ get_section_by_index(Elf_Ehdr *h, unsigned index)
 Elf_Sym *
 get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
 {
-   Elf_Shdr *symtab;
-   Elf_Sym *syms;
-   symtab = get_section_by_name(h, ".symtab", NULL);
+   Elf_Shdr *symtab = get_section_by_name(h, ".symtab", NULL);
 
-   if (!symtab) {
+   if (!symtab)
       return NULL;
+
+   /*
+    * The entries are accessed as an array of Elf_Sym: any other entry size
+    * would make the count and the stride disagree (and 0 would divide by 0).
+    */
+   if (symtab->sh_entsize != sizeof(Elf_Sym)) {
+      fprintf(stderr,
+              "ERROR: invalid .symtab: sh_entsize is %llu, expected %zu\n",
+              (unsigned long long)symtab->sh_entsize, sizeof(Elf_Sym));
+      exit(1);
    }
 
-   syms = (Elf_Sym *)((char *)h + symtab->sh_offset);
-   *sym_count = symtab->sh_size / symtab->sh_entsize;
-   return syms;
+   *sym_count = symtab->sh_size / sizeof(Elf_Sym);
+   return (Elf_Sym *)((char *)h + symtab->sh_offset);
+}
+
+Elf_Shdr *
+get_symbols_strtab(Elf_Ehdr *h)
+{
+   Elf_Shdr *symtab = get_section_by_name(h, ".symtab", NULL);
+   Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
+   Elf_Shdr *strtab = NULL;
+
+   if (!symtab)
+      return NULL;
+
+   if (symtab->sh_link < h->e_shnum)
+      strtab = sections + symtab->sh_link;
+
+   if (!strtab || strtab->sh_type != SHT_STRTAB) {
+      fprintf(stderr,
+              "ERROR: .symtab links to section %u, "
+              "which is not a string table\n", symtab->sh_link);
+      exit(1);
+   }
+
+   return strtab;
 }
 
 int
@@ -330,17 +360,11 @@ get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
 }
 
 const char *
-get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
+get_symbol_name(Elf_Ehdr *h, Elf_Shdr *strtab, Elf_Sym *s)
 {
    Elf_Shdr *sections = (Elf_Shdr *) ((char *)h + h->e_shoff);
-   Elf_Shdr *strtab = get_section_by_name(h, ".strtab", NULL);
    Elf_Shdr *section_header_strtab = sections + h->e_shstrndx;
-   const char *name = NULL;
-
-   if (!strtab) {
-      fprintf(stderr, "ERROR: no .strtab section!\n");
-      exit(1);
-   }
+   const char *name;
 
    if (ELF_ST_TYPE(s->st_info) == STT_SECTION) {
 
@@ -353,8 +377,8 @@ get_symbol_name(Elf_Ehdr *h, Elf_Sym *s)
 
    } else {
 
-      if (strtab)
-         name = (char *)h + strtab->sh_offset + s->st_name;
+      assert(strtab);
+      name = (char *)h + strtab->sh_offset + s->st_name;
    }
 
    return name;
@@ -386,6 +410,7 @@ get_symbol_by_name(Elf_Ehdr *h,
 {
    unsigned sym_count;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+   Elf_Shdr *strtab = get_symbols_strtab(h);
    Elf_Sym *result = NULL;
 
    if (!syms)
@@ -394,7 +419,7 @@ get_symbol_by_name(Elf_Ehdr *h,
    for (unsigned i = 0; i < sym_count; i++) {
 
       Elf_Sym *s = syms + i;
-      const char *s_name = get_symbol_name(h, s);
+      const char *s_name = get_symbol_name(h, strtab, s);
 
       if (!s_name)
          continue; // unnamed symbol: skip

@@ -62,8 +62,13 @@ get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol);
 Elf_Sym *
 get_symbol_by_index(Elf_Ehdr *h, unsigned index);
 
+/* The string table of .symtab (its sh_link), or NULL without .symtab. */
+Elf_Shdr *
+get_symbols_strtab(Elf_Ehdr *h);
+
+/* The name of `s`; `strtab` is get_symbols_strtab()'s result. */
 const char *
-get_symbol_name(Elf_Ehdr *h, Elf_Sym *s);
+get_symbol_name(Elf_Ehdr *h, Elf_Shdr *strtab, Elf_Sym *s);
 
 Elf_Sym *
 get_symbol_by_name(Elf_Ehdr *h, const char *sym_name, unsigned *index);

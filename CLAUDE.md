@@ -76,36 +76,27 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **String table found by name, not by link.** `get_symbol_name()`
-   (`src/elf_utils.c:336`) looks up `.strtab` by name; it must use the
-   symbol table's `sh_link`. `get_symbols_ptr()` (`src/elf_utils.c:302`)
-   finds `.symtab` by name (acceptable) but divides by `sh_entsize`
-   without checking for 0. `get_symbol_name()` also re-scans the section
-   table for every symbol (O(symbols x sections)), and
-   `get_symbol_by_name()` always scans the whole table to detect
-   duplicates.
-
-2. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
+1. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
    ENUM options (`src/elfhack.c:80-85`) but not `ELFHACK_STRING`, so
    `-o/--output` never appears in `--help`.
 
-3. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
+2. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
    any unit and silently treats everything except `kb` as bytes.
    Validate `b|kb`.
 
-4. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
+3. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
    self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
    non-inline `static` function in a header, which is why
    `-Wno-unused-function` is needed; make it `static inline` and drop the
    flag.
 
-5. **Diagnostics.** "option not recognized" goes to stdout
+4. **Diagnostics.** "option not recognized" goes to stdout
    (`src/elfhack.c:381`); a few messages lack a trailing `\n`
    (`validate_tool_options()` at `src/elfhack.c:434`, "bind is too
    high", "type is too high", the `swap_symbols` errors).
    `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-6. **The input is always opened `O_RDWR`** (`src/elfhack.c:466`), even
+5. **The input is always opened `O_RDWR`** (`src/elfhack.c:466`), even
    for read-only actions, so a read-only file cannot be inspected. Open
    read-only when no mutating action is on the command line (needs a
    `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -113,16 +104,16 @@ None left.
 
 ### P2: build, CI, docs
 
-7. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+6. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-8. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+7. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-9. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+8. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-10. README: fix the typos ("Disclamer", "what are you going") and
-    document the command line (actions, modifiers, multiple actions per
-    run, `#N` indexes, `-o`).
+9. README: fix the typos ("Disclamer", "what are you going") and
+   document the command line (actions, modifiers, multiple actions per
+   run, `#N` indexes, `-o`).
 
 ## Tilck integration: what Tilck needs from this repo
 

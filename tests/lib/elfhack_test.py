@@ -114,6 +114,16 @@ class ElfhackTestCase(unittest.TestCase):
          f.seek(offset)
          f.write(data)
 
+   def patch_section_header(self, path, name, field, value):
+      offset, size = self.elf(path).section_header_field(name, field)
+      self.patch_bytes(path, offset, value.to_bytes(size, 'little'))
+
+   def rename_section_raw(self, path, name, new_name):
+      """Rename a section without elfhack; the new name must fit."""
+      self.assertLessEqual(len(new_name), len(name))
+      offset = self.elf(path).section_name_offset(name)
+      self.patch_bytes(path, offset, new_name.encode() + b'\0')
+
    def patch_symbol_shndx(self, path, name, shndx):
       elf = self.elf(path)
       offset = elf.symbol_shndx_offset(elf.symbol(name).index)

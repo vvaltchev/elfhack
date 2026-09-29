@@ -170,3 +170,49 @@ class TestSymbols(ElfhackTestCase):
             line = r.stdout.decode().splitlines()[sym.index].split()
             self.assertEqual(line[0], str(sym.index))
             self.assertEqual(line[-1], str(SHN_ABS))  # shndx, then no name
+
+   def test_symbol_names_come_from_the_linked_string_table(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+            value = self.elf(f).symbol('caller').value
+
+            # .symtab still links to it: only the name of the section changes
+            self.rename_section_raw(f, '.strtab', '.strtaX')
+
+            r = self.run_tool(bits, f, '--get-sym-value', 'caller')
+            self.assert_ok(r)
+            self.assertEqual(r.stdout.decode(), f'0x{value:08x}\n')
+
+   def test_symtab_not_linked_to_a_string_table_is_rejected(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+            f = self.fixture(f'obj{bits}.o')
+            text = self.elf(f).section('.text').index
+            self.patch_section_header(f, '.symtab', 'link', text)
+            r = self.run_tool(bits, f, '--get-sym-value', 'caller')
+            self.assert_fails(r, 'not a string table')
+
+   def test_symtab_with_a_wrong_entry_size_is_rejected(self):
+      for bits in ELF_CLASSES:
+         f = self.fixture(f'obj{bits}.o')
+         good = self.elf(f).section('.symtab').entsize
+
+         for entsize in (0, good + 1):
+            with self.subTest(bits=bits, entsize=entsize):
+               self.patch_section_header(f, '.symtab', 'entsize', entsize)
+               r = self.run_tool(bits, f, '--list-syms')
+               self.assert_fails(r, 'sh_entsize')
+
+   def test_file_without_a_symbol_table(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+            self.rename_section_raw(f, '.symtab', '.symtaX')
+
+            self.assert_fails(self.run_tool(bits, f, '--list-syms'),
+                              'No symbol table')
+            self.assert_fails(self.run_tool(bits, f, '--get-sym-value',
+                                            'caller'), 'not found')

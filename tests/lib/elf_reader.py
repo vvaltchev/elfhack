@@ -29,9 +29,15 @@ STT_SECTION = 3
 # Offset of st_shndx inside a symbol table entry, per ELF class
 _SYM_SHNDX_OFFSET = {ELFCLASS32: 14, ELFCLASS64: 6}
 
+# (offset, size) of the section header fields the tests patch, per ELF class
+_SHDR_FIELDS = {
+   ELFCLASS32: {'link': (24, 4), 'entsize': (36, 4)},
+   ELFCLASS64: {'link': (40, 4), 'entsize': (56, 8)},
+}
+
 Section = namedtuple(
    'Section',
-   'index name type flags addr offset size link info entsize'
+   'index name type flags addr offset size link info entsize name_offset'
 )
 
 Symbol = namedtuple('Symbol', 'index name value size info other shndx')
@@ -102,7 +108,7 @@ class ElfFile:
 
          self.sections.append(Section(
             i, self._cstring(shstrtab_offset + name), type_, flags, addr,
-            offset, size, link, info, entsize
+            offset, size, link, info, entsize, name
          ))
 
    def _cstring(self, offset):
@@ -143,6 +149,17 @@ class ElfFile:
          ))
 
       return result
+
+   def section_header_field(self, name, field):
+      """(file offset, size) of `field` in the header of section `name`."""
+      offset, size = _SHDR_FIELDS[self.elf_class][field]
+      header = self.shoff + self.section(name).index * self.shentsize
+      return header + offset, size
+
+   def section_name_offset(self, name):
+      """The file offset of the name of section `name`, in .shstrtab."""
+      shstrtab = self.sections[self.shstrndx]
+      return shstrtab.offset + self.section(name).name_offset
 
    def symbol_shndx_offset(self, index):
       """The file offset of the st_shndx field of symbol `index`."""

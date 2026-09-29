@@ -160,6 +160,7 @@ list_syms(struct elf_file_info *nfo)
    unsigned sym_count;
    Elf_Ehdr *h = (Elf_Ehdr*)nfo->vaddr;
    Elf_Sym *syms = get_symbols_ptr(h, &sym_count);
+   Elf_Shdr *strtab = get_symbols_strtab(h);
 
    if (!syms) {
       fprintf(stderr, "ERROR: No symbol table\n");
@@ -168,7 +169,7 @@ list_syms(struct elf_file_info *nfo)
 
    for (unsigned i = 0; i < sym_count; i++) {
       Elf_Sym *s = syms + i;
-      const char *s_name = get_symbol_name(h, s);
+      const char *s_name = get_symbol_name(h, strtab, s);
       printf("%5u %014llx %10llu %-10s %-10s %-10s %5u %s\n",
              i,                                 /* index                 */
              (unsigned long long)s->st_value,   /* offset within section */

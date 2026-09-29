@@ -55,7 +55,8 @@ set_sym_strval(struct elf_file_info *nfo,
    len = strlen(val) + 1;
 
    if (sym->st_size < len) {
-      fprintf(stderr, "ERROR: Symbol '%s' [%u bytes] not big enough for value\n",
+      fprintf(stderr,
+              "ERROR: Symbol '%s' [%u bytes] not big enough for value\n",
               name_or_index, (unsigned)sym->st_size);
       return 1;
    }

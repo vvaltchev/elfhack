@@ -400,7 +400,7 @@ process_all_options(struct elf_file_info *nfo,
       }
 
       argc_new = argc;
-      opt->proc(nfo, opt, const_processing, &argc_new, argv);
+      rc = opt->proc(nfo, opt, const_processing, &argc_new, argv);
 
       if (rc) {
          /* We got an error, stop processing. */

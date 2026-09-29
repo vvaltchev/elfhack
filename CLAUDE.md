@@ -55,40 +55,30 @@ Ordered by priority. P0 blocks Tilck integration outright.
 
 ### P0: blockers
 
-1. **Action failures always exit with 0.** `process_all_options()`
-   (`src/elfhack.c:403`) calls `opt->proc(...)` and discards the return
-   value, so `rc` is never set and the `if (rc) break;` right after it is
-   dead code. Verified: `--check-entry-point 0x1234` on a mismatching
-   binary prints `ERROR: entry point ... != expected` and exits 0; a
-   missing symbol for `--get-sym-value` also exits 0. Tilck's build
-   relies on non-zero exits from `--verify-flat-elf`,
-   `--check-entry-point` and `--set-sym-strval`. Fix: `rc = opt->proc(...)`
-   and stop at the first failure. The same bug hides enum-parse errors
-   during the const pass. It also defeats `-o`, which renames its
-   temporary copy over the output only when the run returns 0.
+None left.
 
 ### P1: wrong behaviour
 
-2. **`SHT_REL` handled with the `Elf_Rela` layout.**
+1. **`SHT_REL` handled with the `Elf_Rela` layout.**
    `redirect_rel_internal_index()` (`src/elf_utils.c:478`), the
    `SHT_REL` branch, declares `Elf_Rela *rel` and walks REL entries with
    RELA stride (12 vs 8 bytes on ELF32, 24 vs 16 on ELF64), so the loop
    reads and rewrites the wrong fields. Affects `--redirect-reloc` and
    `--swap-symbols` on i386 objects, which use `.rel.*`.
 
-3. **mmap failure checked through `errno`** (`src/elfhack.c:499`).
+2. **mmap failure checked through `errno`** (`src/elfhack.c:499`).
    Compare against `MAP_FAILED`. An empty file makes `mmap` fail with
    size 0; a file shorter than an ELF header is read out of bounds by
    `elf_header_type_check()`.
 
-4. **`--drop-last-section` truncates a file that is still mapped**
+3. **`--drop-last-section` truncates a file that is still mapped**
    (`src/section_cmds.c:287`). Tilck's version unmaps first (the
    comment about WSL got lost). With multiple actions per run, any later
    action touching the dropped range dies with SIGBUS, and
    `nfo->mmap_size` is stale. Unmap, truncate, remap, and update
    `mmap_size`.
 
-5. **Off-by-one bounds checks on symbol indexes.** `index > sym_count`
+4. **Off-by-one bounds checks on symbol indexes.** `index > sym_count`
    must be `>=` in `get_index_of_symbol()` (`src/elf_utils.c:226`),
    `get_symbol_by_index()` (`src/elf_utils.c:272`),
    `swap_symbols_index()` (`src/elf_utils.c:519` and the `idx2` twin),
@@ -97,7 +87,7 @@ Ordered by priority. P0 blocks Tilck integration outright.
    return type, and callers test it with `< 0` after storing it in an
    `int`.
 
-6. **Special section indexes used as array indexes.** `sections +
+5. **Special section indexes used as array indexes.** `sections +
    sym->st_shndx` for `SHN_UNDEF`/`SHN_ABS`/`SHN_COMMON` (and anything
    `>= SHN_LORESERVE`) reads out of the section table:
    `get_sym_section()` (`src/elf_utils.c:378`), `dump_sym()`
@@ -105,7 +95,7 @@ Ordered by priority. P0 blocks Tilck integration outright.
    `dump_sym()` on an `SHT_NOBITS` (`.bss`) symbol dumps unrelated file
    bytes; it should refuse.
 
-7. **String table found by name, not by link.** `get_symbol_name()`
+6. **String table found by name, not by link.** `get_symbol_name()`
    (`src/elf_utils.c:238`) looks up `.strtab` by name; it must use the
    symbol table's `sh_link`. `get_symbols_ptr()` (`src/elf_utils.c:204`)
    finds `.symtab` by name (acceptable) but divides by `sh_entsize`
@@ -114,27 +104,27 @@ Ordered by priority. P0 blocks Tilck integration outright.
    `get_symbol_by_name()` always scans the whole table to detect
    duplicates.
 
-8. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
+7. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
    ENUM options (`src/elfhack.c:80-85`) but not `ELFHACK_STRING`, so
    `-o/--output` never appears in `--help`.
 
-9. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
+8. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
    any unit and silently treats everything except `kb` as bytes.
    Validate `b|kb`.
 
-10. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
-    self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
-    non-inline `static` function in a header, which is why
-    `-Wno-unused-function` is needed; make it `static inline` and drop the
-    flag.
+9. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
+   self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
+   non-inline `static` function in a header, which is why
+   `-Wno-unused-function` is needed; make it `static inline` and drop the
+   flag.
 
-11. **Diagnostics.** "option not recognized" goes to stdout
+10. **Diagnostics.** "option not recognized" goes to stdout
     (`src/elfhack.c:381`); a few messages lack a trailing `\n`
     (`validate_tool_options()` at `src/elfhack.c:434`, "bind is too
     high", "type is too high", the `swap_symbols` errors).
     `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-12. **The input is always opened `O_RDWR`** (`src/elfhack.c:468`), even
+11. **The input is always opened `O_RDWR`** (`src/elfhack.c:468`), even
     for read-only actions, so a read-only file cannot be inspected. Open
     read-only when no mutating action is on the command line (needs a
     `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -142,19 +132,19 @@ Ordered by priority. P0 blocks Tilck integration outright.
 
 ### P2: build, CI, docs
 
-13. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+12. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
     Remove it.
-14. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+13. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
     `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-15. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+14. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
     retired; `-DTESTS=1` is passed but there are no tests. Add macOS
     and FreeBSD jobs.
-16. **No tests at all.** Add a test suite with small committed ELF32
+15. **No tests at all.** Add a test suite with small committed ELF32
     and ELF64 fixtures (object files and a linked binary) so it runs on
     hosts that cannot produce 32-bit output (macOS). Every P0/P1 item
     above gets a regression test; exit codes are checked for every
     failure path.
-17. README: fix the typos ("Disclamer", "what are you going") and
+16. README: fix the typos ("Disclamer", "what are you going") and
     document the command line (actions, modifiers, multiple actions per
     run, `#N` indexes, `-o`).
 

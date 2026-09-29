@@ -10,6 +10,15 @@ enum elfhack_option_type {
    ELFHACK_STRING,
 };
 
+/*
+ * What an action does to the ELF file. The file is opened (and mapped)
+ * read-write only if at least one action on the command line writes it.
+ */
+enum elfhack_file_access {
+   ELFHACK_READS_FILE,
+   ELFHACK_WRITES_FILE,
+};
+
 struct elf_file_info;
 struct elfhack_option;
 
@@ -38,6 +47,7 @@ struct elfhack_option {
       /* type == ELFHACK_ACTION */
       struct {
          int nargs;             /* number of parameters */
+         enum elfhack_file_access access;
          void *func;            /* function pointer */
       };
 
@@ -61,7 +71,8 @@ bool get_boolean_option_val(const char *name);
 int get_enum_option_val(const char *name);
 const char *get_string_option_val(const char *name);
 
-#define REGISTER_CMD(n, opt1, opt2, help_str, nargs_val, handler)    \
+#define REGISTER_CMD(n, opt1, opt2, help_str, nargs_val, access_val, \
+                     handler)                                        \
    static struct elfhack_option __cmd_##n = {                        \
       .next = NULL,                                                  \
       .type = ELFHACK_ACTION,                                        \
@@ -70,6 +81,7 @@ const char *get_string_option_val(const char *name);
       .short_opt = opt2,                                             \
       .help = help_str,                                              \
       .nargs = nargs_val,                                            \
+      .access = access_val,                                          \
       .func = handler,                                               \
    };                                                                \
    static void __attribute__((constructor))                          \

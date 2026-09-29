@@ -46,5 +46,6 @@ REGISTER_CMD(
    "-rr",
    "<symbol1> <symbol2>",
    2,
+   ELFHACK_WRITES_FILE,
    &redirect_reloc
 )

@@ -14,10 +14,12 @@ struct elf_file_info {
    size_t mmap_size;
    void *vaddr;
    int fd;
+   bool writable;    /* opened read-write: map it read-write too */
 };
 
 /*
- * Map the whole file `nfo->fd` in memory (shared, read-write) and set
+ * Map the whole file `nfo->fd` in memory (shared; read-write only if
+ * `nfo->writable`) and set
  * `nfo->vaddr` and `nfo->mmap_size`. The file must not be mapped already.
  * Returns 0 on success; on failure, prints an error, leaves `nfo->vaddr`
  * NULL and returns 1.

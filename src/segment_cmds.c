@@ -77,5 +77,6 @@ REGISTER_CMD(
    NULL, // short opt
    "<phdr index> <rwx flags>",
    2,
+   ELFHACK_WRITES_FILE,
    &set_phdr_rwx_flags
 )

@@ -72,6 +72,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<section> <symbol> <string value>",
    3,
+   ELFHACK_WRITES_FILE,
    &set_sym_strval
 )
 
@@ -122,6 +123,7 @@ REGISTER_CMD(
    "-ds",
    "<symbol>",
    1,
+   ELFHACK_READS_FILE,
    &dump_sym
 )
 
@@ -148,6 +150,7 @@ REGISTER_CMD(
    "-v", // short opt
    "<symbol>",
    1,
+   ELFHACK_READS_FILE,
    &get_sym_value
 )
 
@@ -190,6 +193,7 @@ REGISTER_CMD(
    "-s", // short opt
    "List all the symbols in .symtab",
    0,
+   ELFHACK_READS_FILE,
    &list_syms
 )
 
@@ -237,6 +241,7 @@ REGISTER_CMD(
    "-si", // short opt
    "<symbol>",
    1,
+   ELFHACK_READS_FILE,
    &get_sym_info
 )
 
@@ -281,6 +286,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<symbol> <bind num>",
    2,
+   ELFHACK_WRITES_FILE,
    &set_sym_bind
 )
 
@@ -326,6 +332,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<symbol> <type num>",
    2,
+   ELFHACK_WRITES_FILE,
    &set_sym_type
 )
 
@@ -365,6 +372,7 @@ REGISTER_CMD(
    "-u", // short opt
    "<symbol> (breaks the symtab sorting!)",
    1,
+   ELFHACK_WRITES_FILE,
    &undef_sym
 )
 
@@ -416,5 +424,6 @@ REGISTER_CMD(
    NULL, // short opt
    "<index1> <index2> (EXPERIMENTAL)",
    2,
+   ELFHACK_WRITES_FILE,
    &swap_symbols
 )

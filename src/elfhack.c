@@ -42,6 +42,13 @@ typedef int (*cmd_func_3)(struct elf_file_info *,
 struct elfhack_option *options_head;
 struct elfhack_option *options_tail;
 
+/*
+ * Does any action on the command line write the ELF file? Set by the const
+ * pass over the options, before the file is opened: if not, it is opened and
+ * mapped read-only.
+ */
+static bool actions_write_file;
+
 static void
 dump_options(enum elfhack_option_type type)
 {
@@ -93,6 +100,7 @@ REGISTER_CMD(
    "-h",
    "Show the help message",
    0,
+   ELFHACK_READS_FILE,
    &show_help
 )
 
@@ -185,6 +193,9 @@ process_option_type_action(struct elf_file_info *nfo,
 {
    int rc = 0;
    assert(opt->type == ELFHACK_ACTION);
+
+   if (const_processing && opt->access == ELFHACK_WRITES_FILE)
+      actions_write_file = true;
 
    if (!const_processing) {
       switch (opt->nargs) {
@@ -464,7 +475,8 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
    int rc;
 
    nfo.path = name;
-   nfo.fd = open(path, O_RDWR);
+   nfo.writable = actions_write_file;
+   nfo.fd = open(path, nfo.writable ? O_RDWR : O_RDONLY);
 
    if (nfo.fd < 0) {
       perror("open failed");

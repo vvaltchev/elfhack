@@ -55,6 +55,7 @@ REGISTER_CMD(
    NULL, // short opt
    "Move the program headers and sections at the top of the ELF file",
    0,
+   ELFHACK_WRITES_FILE,
    &move_metadata
 )
 
@@ -131,6 +132,7 @@ REGISTER_CMD(
    NULL, // short opt
    "",
    0,
+   ELFHACK_READS_FILE,
    &verify_flat_elf_file
 )
 
@@ -170,6 +172,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<expected>",
    1,
+   ELFHACK_READS_FILE,
    &check_entry_point
 )
 
@@ -224,5 +227,6 @@ REGISTER_CMD(
    NULL, // short opt
    "<expected_max> <b|kb>",
    2,
+   ELFHACK_READS_FILE,
    &check_mem_size
 )

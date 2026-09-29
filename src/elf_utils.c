@@ -12,6 +12,12 @@
 #include "elfhack/misc.h"
 #include "elfhack/elf_utils.h"
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   #define HOST_ELF_DATA      ELFDATA2LSB
+#else
+   #define HOST_ELF_DATA      ELFDATA2MSB
+#endif
+
 int
 elf_file_map(struct elf_file_info *nfo)
 {
@@ -19,6 +25,7 @@ elf_file_map(struct elf_file_info *nfo)
    size_t mmap_size;
    long page_size;
    void *vaddr;
+   int prot;
 
    assert(!nfo->vaddr);
 
@@ -48,9 +55,11 @@ elf_file_map(struct elf_file_info *nfo)
    mmap_size =
       pow2_round_up_at((size_t)statbuf.st_size, (unsigned long)page_size);
 
+   prot = nfo->writable ? PROT_READ | PROT_WRITE : PROT_READ;
+
    vaddr = mmap(NULL,                   /* addr */
                 mmap_size,              /* length */
-                PROT_READ | PROT_WRITE, /* prot */
+                prot,                   /* prot */
                 MAP_SHARED,             /* flags */
                 nfo->fd,                /* fd */
                 0);                     /* offset */
@@ -89,6 +98,14 @@ elf_header_type_check(struct elf_file_info *nfo)
        h->e_ident[EI_MAG3] != ELFMAG3)
    {
       fprintf(stderr, "Not a valid ELF binary (magic doesn't match)\n");
+      return 1;
+   }
+
+   /* The fields are read in the host's byte order, as they are */
+   if (h->e_ident[EI_DATA] != HOST_ELF_DATA) {
+      fprintf(stderr,
+              "ERROR: unsupported byte order (EI_DATA: %u): only the "
+              "host's byte order is supported\n", h->e_ident[EI_DATA]);
       return 1;
    }
 

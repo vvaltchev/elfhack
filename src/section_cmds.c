@@ -36,6 +36,7 @@ REGISTER_CMD(
    "-d",
    "<section>",
    1,
+   ELFHACK_READS_FILE,
    &section_bin_dump
 )
 
@@ -97,6 +98,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<src section> <dest section>",
    2,
+   ELFHACK_WRITES_FILE,
    &copy_section
 )
 
@@ -139,6 +141,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<section> <new_name>",
    2,
+   ELFHACK_WRITES_FILE,
    &rename_section
 )
 
@@ -182,6 +185,7 @@ REGISTER_CMD(
    NULL, // short opt
    "<section> <linked_section>",
    2,
+   ELFHACK_WRITES_FILE,
    &link_sections
 )
 
@@ -208,6 +212,7 @@ REGISTER_CMD(
    "-U", // short opt
    "<section>",
    1,
+   ELFHACK_WRITES_FILE,
    &undef_section
 )
 
@@ -311,5 +316,6 @@ REGISTER_CMD(
    NULL, // short opt
    "Drop the last section and trucate the ELF file",
    0,
+   ELFHACK_WRITES_FILE,
    &drop_last_section
 )

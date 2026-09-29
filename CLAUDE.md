@@ -65,6 +65,12 @@ after it.** Run the test against the unfixed binary to see it fail.
   type on its own line, `/* */` comments.
 - Host portability: Linux (x86_64, aarch64), FreeBSD, macOS (aarch64).
   macOS has no `<elf.h>` at all.
+- Every action declares in `REGISTER_CMD` whether it writes the ELF file
+  (`ELFHACK_WRITES_FILE`) or only reads it (`ELFHACK_READS_FILE`): the
+  file is opened and mapped read-only unless some action on the command
+  line writes it, so a reader that writes crashes. When unsure, declare
+  it a writer. Add every new reader to `READ_ONLY_ACTIONS` in
+  `tests/test_cli.py`.
 
 ## Fix list
 
@@ -76,22 +82,18 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
-   for read-only actions, so a read-only file cannot be inspected. Open
-   read-only when no mutating action is on the command line (needs a
-   `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
-   a big-endian ELF is silently misread.
+None left.
 
 ### P2: build, CI, docs
 
-2. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+1. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-3. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+2. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-4. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+3. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-5. README: fix the typos ("Disclamer", "what are you going") and
+4. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

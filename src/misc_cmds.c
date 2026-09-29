@@ -180,8 +180,18 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
 {
    size_t sz = elf_calc_mem_size(nfo->vaddr);
    size_t exp_val;
+   size_t unit_size;
    char *endptr;
    int base = 10;
+
+   if (!strcmp(unit, "b")) {
+      unit_size = 1;
+   } else if (!strcmp(unit, "kb")) {
+      unit_size = KB;
+   } else {
+      fprintf(stderr, "Invalid unit '%s': expected b or kb.\n", unit);
+      return 1;
+   }
 
    if (exp[0] == '0' && exp[1] == 'x')
       base = 16;
@@ -194,8 +204,7 @@ check_mem_size(struct elf_file_info *nfo, const char *exp, const char *unit)
       return 1;
    }
 
-   if (!strcmp(unit, "kb"))
-      exp_val *= KB;
+   exp_val *= unit_size;
 
    if (sz > exp_val) {
 

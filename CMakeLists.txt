@@ -44,8 +44,16 @@ endif()
 # class gets its own binary: elfhack32 for ELFCLASS32 files and elfhack64
 # for ELFCLASS64 ones, whatever the bitness of the host.
 
+# Extra C sources compiled into both binaries, e.g. to add commands with
+# REGISTER_CMD without patching this file. A ;-separated list of paths,
+# absolute or relative to this directory. They are compiled into the
+# executables directly: never put them in a static library, the linker would
+# drop the unreferenced objects and their constructor-based registration.
+set(ELFHACK_EXTRA_SOURCES "" CACHE STRING
+    "Extra C sources compiled into elfhack32 and elfhack64 (;-separated)")
+
 foreach(bits 32 64)
-   add_executable(elfhack${bits} ${SOURCES})
+   add_executable(elfhack${bits} ${SOURCES} ${ELFHACK_EXTRA_SOURCES})
    target_compile_definitions(elfhack${bits} PRIVATE USE_ELF${bits})
    target_include_directories(elfhack${bits} PRIVATE include)
 endforeach()

@@ -86,12 +86,10 @@ None left.
 
 ### P2: build, CI, docs
 
-1. `CMakeLists.txt`: no `ELFHACK_EXTRA_SOURCES` hook (see "Tilck
-   integration").
-2. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+1. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-3. README: fix the typos ("Disclamer", "what are you going") and
+2. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 
@@ -111,12 +109,12 @@ for symbol listing with a names-only output, and a way to make
 `--get-sym-value` require a given section.
 
 If Tilck ever needs a truly Tilck-specific command, it will ship it as a
-pkgmgr patch that adds a source file using `REGISTER_CMD`. To keep such a
-patch free of CMake hunks, `CMakeLists.txt` should accept extra sources
-(`ELFHACK_EXTRA_SOURCES`) or glob `src/*.c`. Extensions must be compiled
-into the executable directly: constructor-based registration is silently
-lost if the objects go into a static library, because the linker drops
-unreferenced archive members.
+source file using `REGISTER_CMD` (via a pkgmgr patch) and build elfhack
+with `-DELFHACK_EXTRA_SOURCES=<file.c>`, so no CMake hunk is needed.
+Extensions must be compiled into the executable directly, which the hook
+does: constructor-based registration is silently lost if the objects go
+into a static library, because the linker drops unreferenced archive
+members.
 
 Behaviour change to keep in mind: name lookups now exit with an error
 when a name matches more than one symbol or section. The names Tilck

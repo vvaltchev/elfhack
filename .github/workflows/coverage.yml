@@ -1,0 +1,32 @@
+name: Coverage
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+  coverage:
+    # Ubuntu 22.04: lcov 1.15 with its gcc (tests/run_tests --coverage
+    # always builds with gcc, whose gcov reads the counters).
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install lcov
+      run: sudo apt-get update && sudo apt-get install -y lcov
+
+    - name: Build with coverage, run the tests, write the report
+      run: python3 tests/run_tests --coverage --verbose
+
+    # lcov records absolute paths: make them relative to the repository,
+    # so that Codecov matches them with its files.
+    - name: Make the paths in the report relative
+      run: >
+        sed "s#^SF:$GITHUB_WORKSPACE/#SF:#"
+        build-coverage/coverage.info > coverage.info
+
+    - name: Upload to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.info
+        disable_search: true
+        fail_ci_if_error: true

@@ -1,7 +1,9 @@
 # Elfhack - a tool for hacking ELF binaries
-![Linux](https://github.com/vvaltchev/elfhack/workflows/Linux/badge.svg)
-![macOS](https://github.com/vvaltchev/elfhack/workflows/macOS/badge.svg)
-![FreeBSD](https://github.com/vvaltchev/elfhack/workflows/FreeBSD/badge.svg)
+[![Linux](https://github.com/vvaltchev/elfhack/actions/workflows/linux.yml/badge.svg?branch=master)](https://github.com/vvaltchev/elfhack/actions/workflows/linux.yml)
+[![FreeBSD](https://github.com/vvaltchev/elfhack/actions/workflows/freebsd.yml/badge.svg?branch=master)](https://github.com/vvaltchev/elfhack/actions/workflows/freebsd.yml)
+[![macOS](https://github.com/vvaltchev/elfhack/actions/workflows/macos.yml/badge.svg?branch=master)](https://github.com/vvaltchev/elfhack/actions/workflows/macos.yml)
+[![Coverage](https://github.com/vvaltchev/elfhack/actions/workflows/coverage.yml/badge.svg?branch=master)](https://github.com/vvaltchev/elfhack/actions/workflows/coverage.yml)
+[![codecov](https://codecov.io/gh/vvaltchev/elfhack/branch/master/graph/badge.svg)](https://codecov.io/gh/vvaltchev/elfhack)
 
 ## What is elfhack?
 A tool for hacking ELF binaries, in ways compatible with the ELF format but
@@ -45,7 +47,9 @@ and `elfhack64` on ELFCLASS64 ones, whatever the bitness of the host. Each
 one refuses files of the other class. Only files in the host's byte order
 are supported.
 
-To run the tests, see [TESTING.md](TESTING.md).
+To run the tests, see [TESTING.md](TESTING.md). CI runs them on Linux and
+FreeBSD, builds on macOS, and uploads the coverage to
+[Codecov](https://codecov.io/gh/vvaltchev/elfhack).
 
 ## Usage
 

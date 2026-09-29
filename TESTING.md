@@ -58,6 +58,13 @@ to `build-coverage/coverage-html/index.html`. The counters are reset before
 every run. The report includes only elfhack's own sources (`src/` and
 `include/elfhack/`).
 
+In CI, the `Coverage` workflow (`.github/workflows/coverage.yml`) does the
+same and uploads the report to [Codecov], with the paths made relative to
+the repository; it needs the `CODECOV_TOKEN` secret in the repository
+settings.
+
+[Codecov]: https://codecov.io/gh/vvaltchev/elfhack
+
 ## How the tests are organized
 
 ```

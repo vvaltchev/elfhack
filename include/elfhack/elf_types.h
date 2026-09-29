@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 
 #pragma once
-#include <elf.h>
+#include <3rd_party/elf.h>
 
 #if defined(USE_ELF32) && defined(USE_ELF64)
    #error Invalid configuration: USE_ELF32 and USE_ELF64 both defined.

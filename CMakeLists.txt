@@ -22,7 +22,7 @@ list(APPEND
    "src/misc.c"
 )
 
-add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)
+add_compile_options(-Wall -Wextra -Werror -ggdb)
 
 # Coverage instrumentation (gcov). Normally not set by hand: `tests/run_tests
 # --coverage` makes its own build with it (see TESTING.md).

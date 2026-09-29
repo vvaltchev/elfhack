@@ -76,19 +76,13 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
-   self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
-   non-inline `static` function in a header, which is why
-   `-Wno-unused-function` is needed; make it `static inline` and drop the
-   flag.
-
-2. **Diagnostics.** "option not recognized" goes to stdout
+1. **Diagnostics.** "option not recognized" goes to stdout
    (`src/elfhack.c:382`); a few messages lack a trailing `\n`
    (`validate_tool_options()` at `src/elfhack.c:435`, "bind is too
    high", "type is too high", the `swap_symbols` errors).
    `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-3. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
+2. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
    for read-only actions, so a read-only file cannot be inspected. Open
    read-only when no mutating action is on the command line (needs a
    `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -96,14 +90,14 @@ None left.
 
 ### P2: build, CI, docs
 
-4. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+3. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-5. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+4. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-6. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+5. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-7. README: fix the typos ("Disclamer", "what are you going") and
+6. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

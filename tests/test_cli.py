@@ -30,6 +30,24 @@ class TestCli(ElfhackTestCase):
             f = self.fixture(f'obj{bits}.o')
             self.assert_fails(self.run_tool(bits, f, '--no-such-option'))
 
+   def test_unknown_option_is_reported_on_stderr(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+            f = self.fixture(f'obj{bits}.o')
+            r = self.run_tool(bits, f, '--no-such-option')
+            self.assert_fails(r, "option '--no-such-option' not recognized")
+            self.assertEqual(r.stdout, b'')
+
+   def test_empty_index_is_rejected(self):
+      for bits in ELF_CLASSES:
+         f = self.fixture(f'obj{bits}.o')
+         for args in (('-sf', 'index', '--get-sym-value', ''),
+                      ('-Sf', 'index', '--section-bin-dump', '')):
+            with self.subTest(bits=bits, option=args[0]):
+               r = self.run_tool(bits, f, *args)
+               self.assert_fails(r, "invalid index ''")
+               self.assertEqual(r.stdout, b'')
+
    def test_wrong_elf_class_is_rejected(self):
       for bits, other in ((32, 64), (64, 32)):
          with self.subTest(bits=bits):

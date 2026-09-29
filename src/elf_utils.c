@@ -656,12 +656,12 @@ swap_symbols_index(Elf_Ehdr *h, int idx1, int idx2)
    }
 
    if (idx1 < 0 || idx1 >= (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds\n", idx1);
       abort();
    }
 
    if (idx2 < 0 || idx2 >= (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds\n", idx2);
       abort();
    }
 

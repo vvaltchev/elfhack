@@ -379,7 +379,7 @@ process_all_options(struct elf_file_info *nfo,
       argc--; argv++;
 
       if (!opt) {
-         printf("ERROR: option '%s' not recognized\n", opt_string);
+         fprintf(stderr, "ERROR: option '%s' not recognized\n", opt_string);
          show_help(NULL);
          return 1;
       }
@@ -433,7 +433,7 @@ validate_tool_options(void)
       if (t != opt) {
          fprintf(stderr,
                  "FATAL: long option '%s' is used by multiple "
-                 "options/commands", opt->long_opt);
+                 "options/commands\n", opt->long_opt);
          abort();
       }
 

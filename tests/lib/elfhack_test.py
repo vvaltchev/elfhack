@@ -90,12 +90,18 @@ class ElfhackTestCase(unittest.TestCase):
 
    def assert_fails(self, result, message=None):
       """
-      The run failed with exit code 1 and, if given, printed `message` on
-      stderr.
+      The run failed with exit code 1, explained why on stderr with complete
+      lines and, if given, printed `message` there.
       """
       self.assertEqual(
          result.rc, 1, f'expected exit code 1, got {result.rc}\n'
                        f'stderr: {result.stderr}'
+      )
+
+      self.assertTrue(
+         result.stderr.endswith('\n'),
+         f'the error message is missing or lacks a final newline: '
+         f'{result.stderr!r}'
       )
 
       if message is not None:

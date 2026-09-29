@@ -76,13 +76,7 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **Diagnostics.** "option not recognized" goes to stdout
-   (`src/elfhack.c:382`); a few messages lack a trailing `\n`
-   (`validate_tool_options()` at `src/elfhack.c:435`, "bind is too
-   high", "type is too high", the `swap_symbols` errors).
-   `is_plain_integer("")` returns true, so an empty index parses as 0.
-
-2. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
+1. **The input is always opened `O_RDWR`** (`src/elfhack.c:467`), even
    for read-only actions, so a read-only file cannot be inspected. Open
    read-only when no mutating action is on the command line (needs a
    `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -90,14 +84,14 @@ None left.
 
 ### P2: build, CI, docs
 
-3. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+2. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-4. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+3. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-5. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+4. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-6. README: fix the typos ("Disclamer", "what are you going") and
+5. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

@@ -216,3 +216,66 @@ class TestSymbols(ElfhackTestCase):
                               'No symbol table')
             self.assert_fails(self.run_tool(bits, f, '--get-sym-value',
                                             'caller'), 'not found')
+
+   def test_set_sym_bind_and_type(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+
+            self.assert_ok(self.run_tool(bits, f, '--set-sym-bind',
+                                         'caller', '2'))     # STB_WEAK
+            self.assert_ok(self.run_tool(bits, f, '--set-sym-type',
+                                         'caller', '1'))     # STT_OBJECT
+
+            info = self.elf(f).symbol('caller').info
+            self.assertEqual((info >> 4, info & 0xf), (2, 1))
+
+   def test_set_sym_bind_and_type_reject_values_too_high(self):
+      for bits in ELF_CLASSES:
+         for action, what in (('--set-sym-bind', 'bind'),
+                              ('--set-sym-type', 'type')):
+            with self.subTest(bits=bits, action=action):
+               f = self.fixture(f'obj{bits}.o')
+               before = self.read_bytes(f)
+               r = self.run_tool(bits, f, action, 'caller', '16')
+               self.assert_fails(r, f'{what} is too high')
+               self.assertEqual(self.read_bytes(f), before)
+
+   def test_swap_symbols(self):
+      for bits in ELF_CLASSES:
+         with self.subTest(bits=bits):
+
+            f = self.fixture(f'obj{bits}.o')
+            rel = '.rel.text' if bits == 32 else '.rela.text'
+            elf = self.elf(f)
+            foo, baz = elf.symbol('foo'), elf.symbol('baz')
+            relocs = elf.relocations(rel)
+
+            r = self.run_tool(bits, f, '--swap-symbols',
+                              str(foo.index), str(baz.index))
+            self.assert_ok(r)
+
+            # The entries swapped places, and the relocations followed them
+            elf = self.elf(f)
+            self.assertEqual(elf.symbol('foo').index, baz.index)
+            self.assertEqual(elf.symbol('baz').index, foo.index)
+            swap = {foo.index: baz.index, baz.index: foo.index}
+            self.assertEqual(
+               elf.relocations(rel),
+               [r._replace(sym=swap.get(r.sym, r.sym)) for r in relocs]
+            )
+
+   def test_swap_symbols_rejects_invalid_indexes(self):
+      for bits in ELF_CLASSES:
+         f = self.fixture(f'obj{bits}.o')
+         count = len(self.elf(f).symbols())
+         for args, message in ((('0', '1'), 'Invalid symbol index: 0'),
+                               (('1', '0'), 'Invalid symbol index: 0'),
+                               (('1', str(count)), 'out of bounds'),
+                               ((str(count), '1'), 'out of bounds')):
+            with self.subTest(bits=bits, indexes=args):
+               before = self.read_bytes(f)
+               r = self.run_tool(bits, f, '--swap-symbols', *args)
+               self.assert_fails(r, message)
+               self.assertEqual(self.read_bytes(f), before)

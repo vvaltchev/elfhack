@@ -267,7 +267,7 @@ set_sym_bind(struct elf_file_info *nfo,
    }
 
    if (bind_n > STB_HIPROC) {
-      fprintf(stderr, "ERROR: bind is too high");
+      fprintf(stderr, "ERROR: bind is too high\n");
       return 1;
    }
 
@@ -312,7 +312,7 @@ set_sym_type(struct elf_file_info *nfo,
    }
 
    if (type_n > STT_HIPROC) {
-      fprintf(stderr, "ERROR: type is too high");
+      fprintf(stderr, "ERROR: type is too high\n");
       return 1;
    }
 
@@ -388,21 +388,21 @@ swap_symbols(struct elf_file_info *nfo,
    int idx2 = atoi(index2_str);
 
    if (idx1 <= 0) {
-      fprintf(stderr, "Invalid symbol index: %s", index1_str);
+      fprintf(stderr, "Invalid symbol index: %s\n", index1_str);
       return 1;
    }
    if (idx2 <= 0) {
-      fprintf(stderr, "Invalid symbol index: %s", index2_str);
+      fprintf(stderr, "Invalid symbol index: %s\n", index2_str);
       return 1;
    }
 
    if (idx1 >= (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds\n", idx1);
       return 1;
    }
 
    if (idx2 >= (int)sym_count) {
-      fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
+      fprintf(stderr, "ERROR: Symbol index %d out of bounds\n", idx2);
       return 1;
    }
 

@@ -16,8 +16,11 @@
 bool
 is_plain_integer(const char *str)
 {
+   if (!*str)
+      return false; /* not even a single digit */
+
    for (const char *p = str; *p != '\0'; p++) {
-      if (!isdigit(*p))
+      if (!isdigit((unsigned char)*p))
          return false;
    }
 

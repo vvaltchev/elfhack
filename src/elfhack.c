@@ -478,6 +478,17 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
       return 1;
    }
 
+   /*
+    * The mapping is rounded up to a whole page and the bytes past the end of
+    * the file read as zeros: without this check, a truncated file would pass
+    * for an ELF whose header fields are all 0.
+    */
+   if ((size_t)statbuf.st_size < sizeof(Elf_Ehdr)) {
+      fprintf(stderr, "ERROR: %s is too small to be an ELF file\n", name);
+      close(nfo.fd);
+      return 1;
+   }
+
    page_size = sysconf(_SC_PAGESIZE);
 
    if (page_size <= 0) {
@@ -488,7 +499,6 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
 
    nfo.mmap_size = pow2_round_up_at((size_t)statbuf.st_size, page_size);
 
-   errno = 0;
    nfo.vaddr = mmap(NULL,                   /* addr */
                     nfo.mmap_size,          /* length */
                     PROT_READ | PROT_WRITE, /* prot */
@@ -496,8 +506,9 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
                     nfo.fd,                 /* fd */
                     0);                     /* offset */
 
-   if (errno) {
-      perror(NULL);
+   if (nfo.vaddr == MAP_FAILED) {
+      perror("mmap failed");
+      close(nfo.fd);
       return 1;
    }
 

@@ -3,7 +3,7 @@
 
 MAKEFLAGS += --no-print-directory
 
-PREREQUISITES := $(TCROOT) build/CMakeCache.txt
+PREREQUISITES := build/CMakeCache.txt
 
 all: $(PREREQUISITES)
 	@$(MAKE) -C build

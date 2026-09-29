@@ -86,14 +86,12 @@ None left.
 
 ### P2: build, CI, docs
 
-1. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
-   Remove it.
-2. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+1. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-3. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+2. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.
-4. README: fix the typos ("Disclamer", "what are you going") and
+3. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

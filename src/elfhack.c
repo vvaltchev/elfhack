@@ -460,8 +460,6 @@ static int
 process_elf_file(const char *path, const char *name, int argc, char **argv)
 {
    struct elf_file_info nfo = {0};
-   struct stat statbuf;
-   size_t page_size;
    int rc;
 
    nfo.path = name;
@@ -472,42 +470,7 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
       return 1;
    }
 
-   if (fstat(nfo.fd, &statbuf) < 0) {
-      perror("fstat failed");
-      close(nfo.fd);
-      return 1;
-   }
-
-   /*
-    * The mapping is rounded up to a whole page and the bytes past the end of
-    * the file read as zeros: without this check, a truncated file would pass
-    * for an ELF whose header fields are all 0.
-    */
-   if ((size_t)statbuf.st_size < sizeof(Elf_Ehdr)) {
-      fprintf(stderr, "ERROR: %s is too small to be an ELF file\n", name);
-      close(nfo.fd);
-      return 1;
-   }
-
-   page_size = sysconf(_SC_PAGESIZE);
-
-   if (page_size <= 0) {
-      fprintf(stderr, "Unable to get page size. Got: %ld\n", (long)page_size);
-      close(nfo.fd);
-      return 1;
-   }
-
-   nfo.mmap_size = pow2_round_up_at((size_t)statbuf.st_size, page_size);
-
-   nfo.vaddr = mmap(NULL,                   /* addr */
-                    nfo.mmap_size,          /* length */
-                    PROT_READ | PROT_WRITE, /* prot */
-                    MAP_SHARED,             /* flags */
-                    nfo.fd,                 /* fd */
-                    0);                     /* offset */
-
-   if (nfo.vaddr == MAP_FAILED) {
-      perror("mmap failed");
+   if (elf_file_map(&nfo)) {
       close(nfo.fd);
       return 1;
    }
@@ -520,10 +483,7 @@ process_elf_file(const char *path, const char *name, int argc, char **argv)
    rc = process_all_options(&nfo, argc, argv, false);
 
 end:
-   if (munmap(nfo.vaddr, nfo.mmap_size) < 0) {
-      perror("munmap() failed");
-   }
-
+   elf_file_unmap(&nfo);
    close(nfo.fd);
    return rc;
 }

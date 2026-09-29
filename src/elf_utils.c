@@ -5,9 +5,78 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "elfhack/misc.h"
 #include "elfhack/elf_utils.h"
+
+int
+elf_file_map(struct elf_file_info *nfo)
+{
+   struct stat statbuf;
+   size_t mmap_size;
+   long page_size;
+   void *vaddr;
+
+   assert(!nfo->vaddr);
+
+   if (fstat(nfo->fd, &statbuf) < 0) {
+      perror("fstat failed");
+      return 1;
+   }
+
+   /*
+    * The mapping is rounded up to a whole page and the bytes past the end of
+    * the file read as zeros: without this check, a truncated file would pass
+    * for an ELF whose header fields are all 0.
+    */
+   if ((size_t)statbuf.st_size < sizeof(Elf_Ehdr)) {
+      fprintf(stderr,
+              "ERROR: %s is too small to be an ELF file\n", nfo->path);
+      return 1;
+   }
+
+   page_size = sysconf(_SC_PAGESIZE);
+
+   if (page_size <= 0) {
+      fprintf(stderr, "Unable to get page size. Got: %ld\n", page_size);
+      return 1;
+   }
+
+   mmap_size =
+      pow2_round_up_at((size_t)statbuf.st_size, (unsigned long)page_size);
+
+   vaddr = mmap(NULL,                   /* addr */
+                mmap_size,              /* length */
+                PROT_READ | PROT_WRITE, /* prot */
+                MAP_SHARED,             /* flags */
+                nfo->fd,                /* fd */
+                0);                     /* offset */
+
+   if (vaddr == MAP_FAILED) {
+      perror("mmap failed");
+      return 1;
+   }
+
+   nfo->vaddr = vaddr;
+   nfo->mmap_size = mmap_size;
+   return 0;
+}
+
+void
+elf_file_unmap(struct elf_file_info *nfo)
+{
+   if (!nfo->vaddr)
+      return;
+
+   if (munmap(nfo->vaddr, nfo->mmap_size) < 0)
+      perror("munmap() failed");
+
+   nfo->vaddr = NULL;
+   nfo->mmap_size = 0;
+}
 
 int
 elf_header_type_check(struct elf_file_info *nfo)

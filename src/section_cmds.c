@@ -283,7 +283,17 @@ drop_last_section(struct elf_file_info *nfo)
       if ((int)sections[i].sh_link == last_section_index)
          sections[i].sh_link = 0;
 
-   /* Physically remove the last section from the file, by truncating it */
+   /*
+    * Physically remove the last section from the file, by truncating it.
+    *
+    * Unmap the file first: a mapping that outlives the truncation still
+    * covers the dropped bytes, and any access past the new end of the file
+    * raises SIGBUS. Also, WSL1 does not support ftruncate() on a memory-mapped
+    * file at all. Then map it again at its new size, for the actions that
+    * follow in the same run.
+    */
+   elf_file_unmap(nfo);
+
    if (ftruncate(nfo->fd, last_offset) < 0) {
 
       fprintf(stderr, "ftruncate(%i, %llu) failed with '%s'\n",
@@ -292,7 +302,7 @@ drop_last_section(struct elf_file_info *nfo)
       return 1;
    }
 
-   return 0;
+   return elf_file_map(nfo);
 }
 
 REGISTER_CMD(

@@ -16,6 +16,19 @@ struct elf_file_info {
    int fd;
 };
 
+/*
+ * Map the whole file `nfo->fd` in memory (shared, read-write) and set
+ * `nfo->vaddr` and `nfo->mmap_size`. The file must not be mapped already.
+ * Returns 0 on success; on failure, prints an error, leaves `nfo->vaddr`
+ * NULL and returns 1.
+ */
+int
+elf_file_map(struct elf_file_info *nfo);
+
+/* Unmap the file, if mapped. Safe to call more than once. */
+void
+elf_file_unmap(struct elf_file_info *nfo);
+
 int
 elf_header_type_check(struct elf_file_info *nfo);
 

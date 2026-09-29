@@ -1,0 +1,25 @@
+name: FreeBSD
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bt: [Debug, Release]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build in a FreeBSD VM
+      uses: vmactions/freebsd-vm@v1
+      with:
+        usesh: true
+        prepare: pkg install -y cmake ninja python3
+        run: |
+          set -e
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.bt }}
+          cmake --build build
+          # The tests run only on Linux: the runner must skip them cleanly.
+          python3 tests/run_tests --build-dir build

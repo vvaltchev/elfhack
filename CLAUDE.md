@@ -86,10 +86,7 @@ None left.
 
 ### P2: build, CI, docs
 
-1. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
-   retired, and the workflow does not run the test suite (`-DTESTS=1`
-   is passed but means nothing). Add macOS and FreeBSD build jobs.
-2. README: fix the typos ("Disclamer", "what are you going") and
+1. README: fix the typos ("Disclamer", "what are you going") and
    document the command line (actions, modifiers, multiple actions per
    run, `#N` indexes, `-o`).
 

@@ -1,18 +1,13 @@
-name: Linux
+name: macOS
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
         bt: [Debug, Release]
-        cc: [gcc, clang]
-
-    env:
-      CC: ${{ matrix.cc }}
 
     steps:
     - uses: actions/checkout@v4
@@ -23,5 +18,7 @@ jobs:
     - name: Build
       run: cmake --build build
 
+    # The tests run only on Linux: this checks that elsewhere the runner
+    # skips them cleanly instead of failing.
     - name: Test
-      run: python3 tests/run_tests --build-dir build --verbose
+      run: python3 tests/run_tests --build-dir build

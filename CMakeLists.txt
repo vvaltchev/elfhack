@@ -8,6 +8,13 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Without a build type, CMake adds neither optimization nor debug flags:
+# default to Debug, which gives debug info. Release, RelWithDebInfo etc.
+# get exactly their own flags.
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
 list(APPEND
 
    SOURCES
@@ -22,7 +29,7 @@ list(APPEND
    "src/misc.c"
 )
 
-add_compile_options(-Wall -Wextra -Werror -ggdb)
+add_compile_options(-Wall -Wextra -Werror)
 
 # Coverage instrumentation (gcov). Normally not set by hand: `tests/run_tests
 # --coverage` makes its own build with it (see TESTING.md).

@@ -86,8 +86,8 @@ None left.
 
 ### P2: build, CI, docs
 
-1. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
-   `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
+1. `CMakeLists.txt`: no `ELFHACK_EXTRA_SOURCES` hook (see "Tilck
+   integration").
 2. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
    retired, and the workflow does not run the test suite (`-DTESTS=1`
    is passed but means nothing). Add macOS and FreeBSD build jobs.

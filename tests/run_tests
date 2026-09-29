@@ -24,6 +24,9 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJ_DIR = os.path.dirname(TESTS_DIR)
 COVERAGE_BUILD_DIR = os.path.join(PROJ_DIR, 'build-coverage')
 
+# Where the tests run. Anywhere else, the runner skips them and succeeds.
+SUPPORTED_SYSTEMS = ('Linux', 'FreeBSD')
+
 sys.path.insert(0, os.path.join(TESTS_DIR, 'lib'))
 
 
@@ -200,9 +203,10 @@ def main():
 
    args = parse_args()
 
-   if platform.system() != 'Linux':
-      print(f'The elfhack tests run only on Linux (this is '
-            f'{platform.system()}): skipping.')
+   if platform.system() not in SUPPORTED_SYSTEMS:
+      print(f'The elfhack tests run only on '
+            f'{" and ".join(SUPPORTED_SYSTEMS)} '
+            f'(this is {platform.system()}): skipping.')
       return 0
 
    suite = load_tests(args.filter)

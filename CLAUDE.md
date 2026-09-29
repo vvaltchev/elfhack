@@ -47,7 +47,7 @@ tests/run_tests -f <name>    # only the matching tests
 make coverage                # instrumented build in build-coverage/ + lcov
 ```
 
-Python `unittest`, Linux only, no dependencies beyond python3, cmake,
+Python `unittest`, Linux and FreeBSD, no dependencies beyond python3, cmake,
 gcc and (for coverage) lcov. Results are checked with
 `tests/lib/elf_reader.py`, never with elfhack itself.
 

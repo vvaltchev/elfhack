@@ -1,9 +1,9 @@
 # Testing elfhack
 
 The test suite runs the `elfhack32` and `elfhack64` binaries on copies of
-small ELF files and checks the results. It runs **on Linux only**: on any
-other OS, the runner prints a message and exits successfully without running
-anything.
+small ELF files and checks the results. It runs **on Linux and FreeBSD**:
+on any other OS, the runner prints a message and exits successfully without
+running anything.
 
 ## Requirements
 

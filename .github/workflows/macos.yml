@@ -18,7 +18,7 @@ jobs:
     - name: Build
       run: cmake --build build
 
-    # The tests run only on Linux: this checks that elsewhere the runner
-    # skips them cleanly instead of failing.
+    # The tests run only on Linux and FreeBSD: this checks that elsewhere
+    # the runner skips them cleanly instead of failing.
     - name: Test
       run: python3 tests/run_tests --build-dir build

@@ -75,12 +75,7 @@ Ordered by priority. P0 blocks Tilck integration outright.
      treats as up to date. Write to a temp file next to the destination
      and `rename()` it only when every action succeeded.
 
-3. **The 32-bit build does not compile with `-Werror`.**
-   `src/section_cmds.c:289` prints `last_offset` (`Elf_Off`, 32-bit
-   under `USE_ELF32`) with `%li`. Verified with gcc and clang. Cast to
-   `(long long)` / `%lld` or similar.
-
-4. **Only one binary, for the host's bitness.** `CMakeLists.txt` builds
+3. **Only one binary, for the host's bitness.** `CMakeLists.txt` builds
    a single `elfhack` with neither `USE_ELF32` nor `USE_ELF64`, so
    `elf_types.h` picks from the host arch, and on any host other than
    i386/x86_64/aarch64 it hits `#error Unknown architecture`
@@ -94,26 +89,26 @@ Ordered by priority. P0 blocks Tilck integration outright.
 
 ### P1: wrong behaviour
 
-5. **`SHT_REL` handled with the `Elf_Rela` layout.**
+4. **`SHT_REL` handled with the `Elf_Rela` layout.**
    `redirect_rel_internal_index()` (`src/elf_utils.c:478`), the
    `SHT_REL` branch, declares `Elf_Rela *rel` and walks REL entries with
    RELA stride (12 vs 8 bytes on ELF32, 24 vs 16 on ELF64), so the loop
    reads and rewrites the wrong fields. Affects `--redirect-reloc` and
    `--swap-symbols` on i386 objects, which use `.rel.*`.
 
-6. **mmap failure checked through `errno`** (`src/elfhack.c:518`).
+5. **mmap failure checked through `errno`** (`src/elfhack.c:518`).
    Compare against `MAP_FAILED`. An empty file makes `mmap` fail with
    size 0; a file shorter than an ELF header is read out of bounds by
    `elf_header_type_check()`.
 
-7. **`--drop-last-section` truncates a file that is still mapped**
+6. **`--drop-last-section` truncates a file that is still mapped**
    (`src/section_cmds.c:287`). Tilck's version unmaps first (the
    comment about WSL got lost). With multiple actions per run, any later
    action touching the dropped range dies with SIGBUS, and
    `nfo->mmap_size` is stale. Unmap, truncate, remap, and update
    `mmap_size`.
 
-8. **Off-by-one bounds checks on symbol indexes.** `index > sym_count`
+7. **Off-by-one bounds checks on symbol indexes.** `index > sym_count`
    must be `>=` in `get_index_of_symbol()` (`src/elf_utils.c:226`),
    `get_symbol_by_index()` (`src/elf_utils.c:272`),
    `swap_symbols_index()` (`src/elf_utils.c:519` and the `idx2` twin),
@@ -122,7 +117,7 @@ Ordered by priority. P0 blocks Tilck integration outright.
    return type, and callers test it with `< 0` after storing it in an
    `int`.
 
-9. **Special section indexes used as array indexes.** `sections +
+8. **Special section indexes used as array indexes.** `sections +
    sym->st_shndx` for `SHN_UNDEF`/`SHN_ABS`/`SHN_COMMON` (and anything
    `>= SHN_LORESERVE`) reads out of the section table:
    `get_sym_section()` (`src/elf_utils.c:378`), `dump_sym()`
@@ -130,36 +125,36 @@ Ordered by priority. P0 blocks Tilck integration outright.
    `dump_sym()` on an `SHT_NOBITS` (`.bss`) symbol dumps unrelated file
    bytes; it should refuse.
 
-10. **String table found by name, not by link.** `get_symbol_name()`
-    (`src/elf_utils.c:238`) looks up `.strtab` by name; it must use the
-    symbol table's `sh_link`. `get_symbols_ptr()` (`src/elf_utils.c:204`)
-    finds `.symtab` by name (acceptable) but divides by `sh_entsize`
-    without checking for 0. `get_symbol_name()` also re-scans the section
-    table for every symbol (O(symbols x sections)), and
-    `get_symbol_by_name()` always scans the whole table to detect
-    duplicates.
+9. **String table found by name, not by link.** `get_symbol_name()`
+   (`src/elf_utils.c:238`) looks up `.strtab` by name; it must use the
+   symbol table's `sh_link`. `get_symbols_ptr()` (`src/elf_utils.c:204`)
+   finds `.symtab` by name (acceptable) but divides by `sh_entsize`
+   without checking for 0. `get_symbol_name()` also re-scans the section
+   table for every symbol (O(symbols x sections)), and
+   `get_symbol_by_name()` always scans the whole table to detect
+   duplicates.
 
-11. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
+10. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
     ENUM options (`src/elfhack.c:80-85`) but not `ELFHACK_STRING`, so
     `-o/--output` never appears in `--help`.
 
-12. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
+11. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
     any unit and silently treats everything except `kb` as bytes.
     Validate `b|kb`.
 
-13. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
+12. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
     self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
     non-inline `static` function in a header, which is why
     `-Wno-unused-function` is needed; make it `static inline` and drop the
     flag.
 
-14. **Diagnostics.** "option not recognized" goes to stdout
+13. **Diagnostics.** "option not recognized" goes to stdout
     (`src/elfhack.c:381`); a few messages lack a trailing `\n`
     (`validate_tool_options()` at `src/elfhack.c:434`, "bind is too
     high", "type is too high", the `swap_symbols` errors).
     `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-15. **The input is always opened `O_RDWR`** (`src/elfhack.c:487`), even
+14. **The input is always opened `O_RDWR`** (`src/elfhack.c:487`), even
     for read-only actions, so a read-only file cannot be inspected. Open
     read-only when no mutating action is on the command line (needs a
     `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -167,20 +162,20 @@ Ordered by priority. P0 blocks Tilck integration outright.
 
 ### P2: build, CI, docs
 
-16. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+15. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
     Remove it.
-17. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+16. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
     `install()`; no `ELFHACK_EXTRA_SOURCES` hook (see "Tilck
     integration").
-18. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+17. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
     retired; `-DTESTS=1` is passed but there are no tests. Build both
     classes with gcc and clang, and add macOS and FreeBSD jobs.
-19. **No tests at all.** Add a test suite with small committed ELF32
+18. **No tests at all.** Add a test suite with small committed ELF32
     and ELF64 fixtures (object files and a linked binary) so it runs on
     hosts that cannot produce 32-bit output (macOS). Every P0/P1 item
     above gets a regression test; exit codes are checked for every
     failure path.
-20. README: fix the typos ("Disclamer", "what are you going") and
+19. README: fix the typos ("Disclamer", "what are you going") and
     document the command line (actions, modifiers, multiple actions per
     run, `#N` indexes, `-o`).
 

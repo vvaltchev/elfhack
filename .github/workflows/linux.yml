@@ -15,7 +15,7 @@ jobs:
       CC: ${{ matrix.cc }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Configure
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.bt }}

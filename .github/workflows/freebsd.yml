@@ -10,7 +10,7 @@ jobs:
         bt: [Debug, Release]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     # FreeBSD's native binaries are ELF too: the tests run there as on
     # Linux. The VM runs everything as root, so the tests on read-only files

@@ -566,7 +566,7 @@ main(int argc, char **argv)
    if (!tmp_file)
       return 1;
 
-   rc = process_elf_file(tmp_file, dest_file, argc - 2, argv + 2);
+   rc = process_elf_file(tmp_file, elf_file, argc - 2, argv + 2);
    rc = file_commit_temp(tmp_file, dest_file, rc);
    free(tmp_file);
    return rc;

@@ -281,7 +281,7 @@ get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count)
    return syms;
 }
 
-unsigned
+int
 get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
 {
    unsigned sym_count;
@@ -292,12 +292,12 @@ get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol)
       return -1;
 
    index = symbol - syms;
-   if (index < 0 || index > sym_count) {
+   if (index < 0 || index >= (ptrdiff_t)sym_count) {
       fprintf(stderr, "ERROR: Invalid symbol pointer %p\n", symbol);
       exit(1);
    }
 
-   return (unsigned)index;
+   return (int)index;
 }
 
 const char *
@@ -338,7 +338,7 @@ get_symbol_by_index(Elf_Ehdr *h, unsigned index)
       return NULL;
    }
 
-   if (index > sym_count) {
+   if (index >= sym_count) {
       fprintf(stderr, "ERROR: invalid symbol index %u\n", index);
       exit(1);
    }
@@ -376,7 +376,7 @@ get_symbol_by_name(Elf_Ehdr *h,
          if (out_index) {
             *out_index = i;
          }
-         assert(get_index_of_symbol(h, result) == i);
+         assert(get_index_of_symbol(h, result) == (int)i);
 
       } else {
          fprintf(stderr, "ERROR: multiple symbols named '%s'\n", sym_name);
@@ -585,12 +585,12 @@ swap_symbols_index(Elf_Ehdr *h, int idx1, int idx2)
       abort();
    }
 
-   if (idx1 < 0 || idx1 > (int)sym_count) {
+   if (idx1 < 0 || idx1 >= (int)sym_count) {
       fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
       abort();
    }
 
-   if (idx2 < 0 || idx2 > (int)sym_count) {
+   if (idx2 < 0 || idx2 >= (int)sym_count) {
       fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
       abort();
    }

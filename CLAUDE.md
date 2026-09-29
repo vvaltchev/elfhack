@@ -59,16 +59,7 @@ None left.
 
 ### P1: wrong behaviour
 
-1. **Off-by-one bounds checks on symbol indexes.** `index > sym_count`
-   must be `>=` in `get_index_of_symbol()` (`src/elf_utils.c:295`),
-   `get_symbol_by_index()` (`src/elf_utils.c:341`),
-   `swap_symbols_index()` (`src/elf_utils.c:588` and the `idx2` twin),
-   `swap_symbols()` (`src/symbol_cmds.c:385` and the `idx2` twin).
-   `get_index_of_symbol()` also returns `-1` through an `unsigned`
-   return type, and callers test it with `< 0` after storing it in an
-   `int`.
-
-2. **Special section indexes used as array indexes.** `sections +
+1. **Special section indexes used as array indexes.** `sections +
    sym->st_shndx` for `SHN_UNDEF`/`SHN_ABS`/`SHN_COMMON` (and anything
    `>= SHN_LORESERVE`) reads out of the section table:
    `get_sym_section()` (`src/elf_utils.c:447`), `dump_sym()`
@@ -76,7 +67,7 @@ None left.
    `dump_sym()` on an `SHT_NOBITS` (`.bss`) symbol dumps unrelated file
    bytes; it should refuse.
 
-3. **String table found by name, not by link.** `get_symbol_name()`
+2. **String table found by name, not by link.** `get_symbol_name()`
    (`src/elf_utils.c:307`) looks up `.strtab` by name; it must use the
    symbol table's `sh_link`. `get_symbols_ptr()` (`src/elf_utils.c:273`)
    finds `.symtab` by name (acceptable) but divides by `sh_entsize`
@@ -85,27 +76,27 @@ None left.
    `get_symbol_by_name()` always scans the whole table to detect
    duplicates.
 
-4. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
+3. **Help omits string flags.** `show_help()` dumps ACTION, FLAG and
    ENUM options (`src/elfhack.c:80-85`) but not `ELFHACK_STRING`, so
    `-o/--output` never appears in `--help`.
 
-5. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
+4. **`--check-mem-size <max> <unit>`** (`src/misc_cmds.c:197`) accepts
    any unit and silently treats everything except `kb` as bytes.
    Validate `b|kb`.
 
-6. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
+5. **`include/elfhack/basic_defs.h:8`**: `#define GB (1024 * GB)` is
    self-referential (should be `1024 * MB`). `pow2_round_up_at()` is a
    non-inline `static` function in a header, which is why
    `-Wno-unused-function` is needed; make it `static inline` and drop the
    flag.
 
-7. **Diagnostics.** "option not recognized" goes to stdout
+6. **Diagnostics.** "option not recognized" goes to stdout
    (`src/elfhack.c:381`); a few messages lack a trailing `\n`
    (`validate_tool_options()` at `src/elfhack.c:434`, "bind is too
    high", "type is too high", the `swap_symbols` errors).
    `is_plain_integer("")` returns true, so an empty index parses as 0.
 
-8. **The input is always opened `O_RDWR`** (`src/elfhack.c:466`), even
+7. **The input is always opened `O_RDWR`** (`src/elfhack.c:466`), even
    for read-only actions, so a read-only file cannot be inspected. Open
    read-only when no mutating action is on the command line (needs a
    `mutates` bit on `struct elfhack_option`). No `EI_DATA` check either:
@@ -113,19 +104,19 @@ None left.
 
 ### P2: build, CI, docs
 
-9. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
+8. `Makefile:6` lists `$(TCROOT)` as a prerequisite, a Tilck leftover.
    Remove it.
-10. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
-    `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
-11. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
+9. `CMakeLists.txt`: `-ggdb` is forced on every build type; no
+   `ELFHACK_EXTRA_SOURCES` hook (see "Tilck integration").
+10. CI (`.github/workflows/linux.yml`): `ubuntu-20.04` runners are
     retired; `-DTESTS=1` is passed but there are no tests. Add macOS
     and FreeBSD jobs.
-12. **No tests at all.** Add a test suite with small committed ELF32
+11. **No tests at all.** Add a test suite with small committed ELF32
     and ELF64 fixtures (object files and a linked binary) so it runs on
     hosts that cannot produce 32-bit output (macOS). Every P0/P1 item
     above gets a regression test; exit codes are checked for every
     failure path.
-13. README: fix the typos ("Disclamer", "what are you going") and
+12. README: fix the typos ("Disclamer", "what are you going") and
     document the command line (actions, modifiers, multiple actions per
     run, `#N` indexes, `-o`).
 

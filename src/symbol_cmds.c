@@ -382,12 +382,12 @@ swap_symbols(struct elf_file_info *nfo,
       return 1;
    }
 
-   if (idx1 > (int)sym_count) {
+   if (idx1 >= (int)sym_count) {
       fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx1);
       return 1;
    }
 
-   if (idx2 > (int)sym_count) {
+   if (idx2 >= (int)sym_count) {
       fprintf(stderr, "ERROR: Symbol index %d out of bounds", idx2);
       return 1;
    }

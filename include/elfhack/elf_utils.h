@@ -53,7 +53,7 @@ get_section_by_index(Elf_Ehdr *h, unsigned index);
 Elf_Sym *
 get_symbols_ptr(Elf_Ehdr *h, unsigned *sym_count);
 
-unsigned
+int
 get_index_of_symbol(Elf_Ehdr *h, Elf_Sym *symbol);
 
 Elf_Sym *

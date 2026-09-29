@@ -601,7 +601,12 @@ get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section)
 void
 remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym)
 {
-   if (rela_sec->sh_type != SHT_REL && rela_sec->sh_type != SHT_RELA)
+   /*
+    * `sym` is identified by its index in .symtab: in a relocation section
+    * referring to another symbol table (e.g. .dynsym), the same index is
+    * another symbol.
+    */
+   if (!is_symtab_reloc_section(h, rela_sec))
       abort();
 
    int sym_index = get_index_of_symbol(h, sym);

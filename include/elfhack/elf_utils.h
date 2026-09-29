@@ -104,6 +104,10 @@ get_section_name(Elf_Ehdr *h, Elf_Shdr *section);
 Elf_Phdr *
 get_phdr_for_section(Elf_Ehdr *h, Elf_Shdr *section);
 
+/*
+ * Zero the entries of `rela_sec` that refer to `sym`. `rela_sec` must be a
+ * relocation section of .symtab (see is_symtab_reloc_section()).
+ */
 void
 remove_rel_entries_for_sym(Elf_Ehdr *h, Elf_Shdr *rela_sec, Elf_Sym *sym);
 

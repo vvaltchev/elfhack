@@ -23,6 +23,16 @@ list(APPEND
 )
 
 add_compile_options(-Wall -Wextra -Werror -Wno-unused-function -ggdb)
-add_executable(elfhack ${SOURCES})
 
-target_include_directories(elfhack PUBLIC include)
+# The ELF class is fixed at compile time (USE_ELF32 / USE_ELF64), so each
+# class gets its own binary: elfhack32 for ELFCLASS32 files and elfhack64
+# for ELFCLASS64 ones, whatever the bitness of the host.
+
+foreach(bits 32 64)
+   add_executable(elfhack${bits} ${SOURCES})
+   target_compile_definitions(elfhack${bits} PRIVATE USE_ELF${bits})
+   target_include_directories(elfhack${bits} PRIVATE include)
+endforeach()
+
+include(GNUInstallDirs)
+install(TARGETS elfhack32 elfhack64 DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -7,7 +7,7 @@
    #error Invalid configuration: USE_ELF32 and USE_ELF64 both defined.
 #endif
 
-#if defined(USE_ELF32) || (defined(__i386__) && !defined(USE_ELF64))
+#if defined(USE_ELF32)
 
    typedef Elf32_Addr Elf_Addr;
    typedef Elf32_Ehdr Elf_Ehdr;
@@ -28,8 +28,7 @@
    #define ELF_R_TYPE(val)          ELF32_R_TYPE(val)
    #define ELF_R_INFO(sym, type)    ELF32_R_INFO(sym, type)
 
-#elif defined(USE_ELF64) || ((defined(__x86_64__) || defined(__aarch64__)) \
-                             && !defined(USE_ELF32))
+#elif defined(USE_ELF64)
 
    typedef Elf64_Addr Elf_Addr;
    typedef Elf64_Ehdr Elf_Ehdr;
@@ -52,6 +51,6 @@
 
 #else
 
-   #error Unknown architecture
+   #error Invalid configuration: define either USE_ELF32 or USE_ELF64.
 
 #endif

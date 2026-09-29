@@ -11,8 +11,11 @@ all: $(PREREQUISITES)
 clean: $(PREREQUISITES)
 	@$(MAKE) -C build clean
 
+install: $(PREREQUISITES)
+	@$(MAKE) -C build install
+
 build/CMakeCache.txt:
 	@echo No CMakeCache.txt found: running CMake first.
 	@mkdir -p build && cd build && cmake ..
 
-.PHONY: all clean
+.PHONY: all clean install
